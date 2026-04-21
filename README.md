@@ -16,4 +16,4 @@ python -m pip install -e .
 - **weights**: keep the weights of a certain model and the parameters of a certain data processing step if its traing is time-consuming.
 
 ## Milestones
-1. April 21st - The first draft of baseline model
+1. April 21st - The first draft of baseline model.
