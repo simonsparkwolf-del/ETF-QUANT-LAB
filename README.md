@@ -2,7 +2,7 @@
 The repository of 2026 CUHK BA group W's ETF quant project.
 
 ## Installation
-Before you run or develop the project please install the packages and dependencies using command in powershell
+Before you run or develop the project please install the packages and dependencies using command in powershell.
 ```PowerShell
 #cd project_dir
 python -m pip install -e .
