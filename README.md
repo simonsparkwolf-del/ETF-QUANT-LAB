@@ -1,6 +1,9 @@
 # ETF-QUANT-LAB
 The repository of 2026 CUHK BA group W's ETF quant project.
 
+## Reminder
+**Download/Pull the project in main branch!!!** <img width="230" height="58" alt="image" src="https://github.com/user-attachments/assets/9d3f70c5-49d0-4e71-9025-58528bdb6752" />
+
 ## Installation
 Before you run or develop the project please install the packages and dependencies using command in powershell.
 ```PowerShell
