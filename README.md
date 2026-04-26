@@ -18,6 +18,7 @@ python -m pip install -e .
 - **model_dev**: keeps the files related to the development of a model e.g. the training notebook, the artifacts etc.
 - **reports**: keeps the outputs of a specific model and the reports about the model in e.g. results, data analysis etc.
 - **src**: source code of our project. Use "import from QuantLab" in the project folder to call the modules.
+- **script**： keeps the scripts of building the data pool or other change on the project.
 - **weights**: keeps the weights of a certain model and the parameters of a certain data processing step if its traing is time-consuming.
 
 ## Milestones
