@@ -1,6 +1,10 @@
 # ETF-QUANT-LAB
 The repository of 2026 CUHK BA group W's ETF quant project.
 
+# **WARNING**
+**DouBao is prohibited in development**
+**请不要在任何开发环节使用豆包**
+
 ## Reminder
 **Download/Pull the project from main branch!!!** <img width="218" height="45" alt="image" src="https://github.com/user-attachments/assets/874663c0-4d78-4f4b-8ef5-219d74adf160" />
 
