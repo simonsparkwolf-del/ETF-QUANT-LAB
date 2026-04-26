@@ -20,6 +20,12 @@ python -m pip install -e .
 - **src**: source code of our project. Use "import from QuantLab" in the project folder to call the modules.
 - **script**： keeps the scripts of building the data pool or other change on the project.
 - **weights**: keeps the weights of a certain model and the parameters of a certain data processing step if its traing is time-consuming.
+- **research**: keeps the experiments, the pilot tests - the group member's playground. Name your folder porperly like "alpha_test"，"XXstrategy_test". **And save your documents including markdowns,model weights only in this private folder**.
+
+## Reminders
+- **All pilot tests including the documents should be placed in /research/XXX folder**
+- **Don't create any folder or any file outside /research folder unless Simon approves**
 
 ## Milestones
 1. April 21st - The first draft of baseline model.
+2. April 26th - Alpha test and ML model architect drafts.
