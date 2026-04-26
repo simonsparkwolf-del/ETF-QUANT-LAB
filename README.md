@@ -31,8 +31,8 @@ python -m pip install -e .
 - **weights**: keeps the weights of a certain model and the parameters of a certain data processing step if its traing is time-consuming.
 
 ## Reminders
-- **All pilot tests including the documents should be placed in /research/XXX folder**
-- **Don't create any folder or any file outside /research folder unless Simon approves**
+- **All pilot tests including the documents should be placed in /research/XXX folder.**
+- **Don't create any folder or any file outside /research folder unless Simon approves.**
 
 ## Milestones
 1. April 21st - The first draft of baseline model.
