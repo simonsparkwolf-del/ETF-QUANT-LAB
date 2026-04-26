@@ -1,11 +1,6 @@
 # ML based architecture
 author: Simon
 
-# **WARNING**
-**DouBao is prohibited in development**
-**请不要在任何开发环节使用豆包**
-
-
 ### A.The reason ML is introduced
 1. **Faster and more powerful to select influential factors among large amount of factors.**
 - No need to waste too much time on thinking how to compose new reasonable indexes.
