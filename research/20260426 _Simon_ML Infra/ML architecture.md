@@ -53,7 +53,7 @@ flowchart TB
 **The model has to fit the score**
 1. The ETF is scored every week according to their performance in the future.
 2. Data Infra Team is working on how to compose the index.
-3. There will be a lot version of WIS.
+3. There will be a lot versions of WIS.
 
 #### 3. ML model module
 1. Learn from the traning data pool.
