@@ -72,7 +72,7 @@ flowchart TB
 ```mermaid
 flowchart LR
     A[Traditional Quant Signals: Cumulative Return, Sharp Ratio] --> B[A certain algorithm]
-    C[Multiple ML Model Siganls: Predict the Performance of the model from various alphas|bars] --> B
+    C[Multiple ML Model Siganls: Predict the Performance of the model from various alphas, bars etc.] --> B
     B -->|compose| D[WSI for weekly ranking]
 ```
 
