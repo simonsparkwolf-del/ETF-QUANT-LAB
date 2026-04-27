@@ -1,3 +1,6 @@
+#CLAUDE files
+.claude
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
