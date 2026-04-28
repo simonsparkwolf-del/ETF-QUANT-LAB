@@ -40,16 +40,12 @@ author: Simon
 ```mermaid
 flowchart TB
     A[Data Pool: Bars + Alpha Pool + Additional Data] --> B[ML model module]
-    B --> C[WIS - Worth Investing Scores]
+    B --> |Generates score| C[WIS - Worth Investing Scores]
+    B --- |Trained by| G[FRS - Future Return Score]
     A --> F[Traditional Quant Signals]
-    F --> C
+    F --> |Generates score| C
     C -->|Rank the ETF and Analyzed by| D[Trading module]
     D -->|Trades in| E[Back Test Engine]
-    A ---|Built by| Group1[Data + Infra Team]
-    E ---|Built by| Group1
-    B ---|Iterated and finetuned by| Group2[Model Dev Team]
-    C ---|The criteria of ranking and the relevant mechanism is managed by| Group1
-    D ---|Upgrade and adjusted by| Group3[Trade Control Team]
 ```
 
 
