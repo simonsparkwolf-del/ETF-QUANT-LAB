@@ -42,7 +42,7 @@ flowchart TB
     A[Data Pool: Bars + Alpha Pool + Additional Data] --> B[ML model module]
     B --> |Generates score| C[WIS - Worth Investing Scores]
     B --- |Trained by| G[FRS - Future Return Score]
-    A --> F[Traditional Quant Signals]
+    A --> F[Traditional Quant Signals Module]
     F --> |Generates score| C
     C -->|Rank the ETF and Analyzed by| D[Trading module]
     D -->|Trades in| E[Back Test Engine]
