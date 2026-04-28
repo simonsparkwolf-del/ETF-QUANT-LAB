@@ -34,6 +34,6 @@ auto increment or SHA256
 
 ### FRS
 Time Window Next 4 WED close prices
-- FRS1 - Total Return: (P_wk4-P_wk0)/P_wk0
-- FRS2 - Sharp Ratio: (avg(r_wk1,...,r_wk4)/std(r_wk1,...,r_wk4))
-- FRS3 - Valotility Penalty Return Total: Return - beta * std(r_wk1,...,r_wk4)
+- FRS1 - Total Return: $(P_{wk4}-P_{wk0})/P_{wk0}$
+- FRS2 - Sharp Ratio: $(avg(r_{wk1},...,r_{wk4})/std(r_{wk1},...,r_{wk4}))$
+- FRS3 - Valotility Penalty Return Total: $Return - beta * std(r_{wk1},...,r_{wk4})$
