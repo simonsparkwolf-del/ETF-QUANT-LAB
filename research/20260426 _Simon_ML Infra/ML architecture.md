@@ -76,14 +76,15 @@ flowchart LR
     B -->|compose| D[WIS for weekly ranking]
 ```
 
+#### 3. FRS - Future Return Score (Traget Value for ML model)
 
 
-#### 3. ML model module
+#### 4. ML model module
 
 1. Learn from the traning data pool.
-2. Generate the WIS as accurate as possible.
+2. Generate the FRS as accurate as possible.
 
-#### 4. Trading  module
+#### 5. Trading  module
 
 **The Data Infra Team will extract the parameters out for optimizing**
 
