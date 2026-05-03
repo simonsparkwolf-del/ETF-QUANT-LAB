@@ -1,6 +1,5 @@
 # ML based architecture
 
-author: Simon
 
 ### A.The reason ML is introduced
 
