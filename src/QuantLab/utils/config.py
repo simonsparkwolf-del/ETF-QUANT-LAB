@@ -13,9 +13,10 @@ def load_pathes() -> dict:
         raise RuntimeError("找不到 .project-root，无法确定项目根目录")
     ROOT = find_project_root(Path(__file__))
     config = {"ROOT": ROOT,
-    "data_path": ROOT / "data",
-    "model_path": ROOT / "model",
-    "reports_path": ROOT / "reports"}
+    "data": ROOT / "data",
+    "model": ROOT / "model",
+    "reports": ROOT / "reports",
+    "research":ROOT / "research"}
     return config
 if __name__ == "__main__":
     config = load_pathes()
