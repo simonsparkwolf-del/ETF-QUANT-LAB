@@ -52,34 +52,41 @@ def save_frs_results(
             continue
 
         res = compute_frs_for_etf(etf_data["tri"], **kwargs)
-        res.columns = [c.lower() for c in res.columns]   # FRS1 → frs1
-        res["ticker"] = etf
         res.index.name = "date"
         res = res.reset_index()
         res["date"] = res["date"].dt.strftime("%Y-%m-%d")
+        res["ticker"] = etf
         frs_records.append(res)
-        print(f"  {etf}: {len(res)} rows, metrics={[c for c in res.columns if c not in ('date','ticker')]}")
+        print(f"  {etf}: {len(res)} rows")
 
     if not frs_records:
         print("  No FRS data computed — check that weekly_bar is populated first.")
         return
 
-    frs_all = pd.concat(frs_records, ignore_index=True)
-    cols = ["date", "ticker"] + [c for c in frs_all.columns if c not in ("date", "ticker")]
-    frs_all = frs_all[cols]
+    # Wide → long format: (date, ticker, frs_id, value)
+    wide = pd.concat(frs_records, ignore_index=True)
+    long = wide.melt(id_vars=["date", "ticker"], var_name="frs_name", value_name="value")
 
-    # Seed frs registry from registered metrics
+    # Map "FRS1" / "FRS2" / "FRS3" → integer frs_id
     mapping = get_mapping_df()
+    code_map = dict(zip(
+        mapping["frs_id"],
+        mapping["frs_id"].str.extract(r"(\d+)")[0].astype(int),
+    ))
+    long["frs_id"] = long["frs_name"].map(code_map)
+    long = long[["date", "ticker", "frs_id", "value"]].dropna(subset=["value"])
+
+    # Seed frs registry
     frs_reg = pd.DataFrame({
-        "frs_code": mapping["frs_id"].str.extract(r"(\d+)")[0].astype(int).values,
+        "frs_id": mapping["frs_id"].str.extract(r"(\d+)")[0].astype(int).values,
         "note":     mapping["description"].values,
     })
     conn.execute("DELETE FROM frs")
     frs_reg.to_sql("frs", conn, if_exists="append", index=False)
 
-    # Write weekly_frs
+    # Write weekly_frs (long format)
     conn.execute("DELETE FROM weekly_frs")
-    frs_all.to_sql("weekly_frs", conn, if_exists="append", index=False)
+    long.to_sql("weekly_frs", conn, if_exists="append", index=False)
     conn.commit()
 
-    print(f"\nFRS complete → SQLite weekly_frs table ({len(frs_all)} rows)")
+    print(f"\nFRS complete → SQLite weekly_frs table ({len(long)} rows, long format)")

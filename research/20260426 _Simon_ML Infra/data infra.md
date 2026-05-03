@@ -46,7 +46,7 @@ flowchart TB
 | 1 | ... | GroupA / GroupB |
 
 ### frs
-| frs_code | note |
+| frs_id | note |
 |----------|------|
 | 1 | 4-week total return |
 | 2 | 4-week Sharpe ratio proxy |
