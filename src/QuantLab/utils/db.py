@@ -5,7 +5,7 @@ Tables
 ------
 asset        — ticker master (ticker, security_name, category)
 alpha        — alpha factor definitions (alpha_id, alpha_name, applicable)
-frs          — FRS metric definitions (frs_code, note)
+frs          — FRS metric definitions (frs_id, note)
 daily_bar    — daily OHLCV + TRI per ticker
 weekly_bar   — W-WED resampled OHLCV + TRI per ticker
 weekly_alpha — alpha values, long format (date, ticker, alpha_id, value)
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS alpha (
 );
 
 CREATE TABLE IF NOT EXISTS frs (
-    frs_code INTEGER PRIMARY KEY,
+    frs_id INTEGER PRIMARY KEY,
     note     TEXT NOT NULL
 );
 
@@ -96,12 +96,11 @@ CREATE TABLE IF NOT EXISTS weekly_alpha (
 );
 
 CREATE TABLE IF NOT EXISTS weekly_frs (
-    date    TEXT NOT NULL,
-    ticker  TEXT NOT NULL REFERENCES asset(ticker),
-    frs1    REAL,
-    frs2    REAL,
-    frs3    REAL,
-    PRIMARY KEY (date, ticker)
+    date     TEXT    NOT NULL,
+    ticker   TEXT    NOT NULL REFERENCES asset(ticker),
+    frs_id INTEGER NOT NULL REFERENCES frs(frs_id),
+    value    REAL,
+    PRIMARY KEY (date, ticker, frs_id)
 );
 """
 

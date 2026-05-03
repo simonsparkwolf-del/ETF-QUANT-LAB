@@ -1,27 +1,34 @@
 # Data Infra
+
 ## Workflow
+
 ```mermaid
 flowchart TB
     A[Google Drive Data Pool] --> B[Task Notebook given in Touch Point]
-    B --> C[Data Auto downloaded in the same desktop folder of the Notebook]
+    B --> C[Data auto-downloaded to the same desktop folder as the Notebook]
 ```
-## Data Framework
+
+## Data Pipeline
+
 ```mermaid
 flowchart TB
-    CSV[data/processed/data.csv] --> NB[dataset_builder.ipynb]
-    NB --> DB[(datapool.db)]
-    DB --> asset[asset]
-    DB --> daily_bar[daily_bar]
-    DB --> weekly_bar[weekly_bar]
-    DB --> weekly_alpha[weekly_alpha]
-    DB --> weekly_frs[weekly_frs]
-    DB --> alpha_reg[alpha]
-    DB --> frs_reg[frs]
+    CSV[data/processed/data.csv]
+    CSV -->|load_panel| panel[panel dict\n11 ETFs × OHLCV+TRI]
+    CSV -->|save_non_etf_bars| DB
+
+    panel -->|save_panel_as_bars| DB
+    panel -->|compute_all_alphas| alphas[alpha results dict]
+    alphas -->|save_alpha_results| DB
+
+    DB -->|weekly_bar| frs_compute[save_frs_results]
+    frs_compute --> DB
+
+    DB[(datapool.db)]
 ```
 
 ## SQLite Schema
 
-### asset
+### asset — ticker master
 | ticker | security_name | category |
 |--------|--------------|----------|
 | XLB | XLB US Equity | ETF |
@@ -40,45 +47,61 @@ flowchart TB
 | VIX | VIX Index | Index |
 | USGG10YR | USGG10YR Index | Index |
 
-### alpha
+### alpha — factor registry
 | alpha_id | alpha_name | applicable |
-|----------|-----------|-----------|
-| 1 | ... | GroupA / GroupB |
+|----------|------------|------------|
+| 1 … N | formula description | GroupA / GroupB |
 
-### frs
-| frs_code | note |
-|----------|------|
+### frs — FRS metric registry
+| frs_id | note |
+|--------|------|
 | 1 | 4-week total return |
 | 2 | 4-week Sharpe ratio proxy |
 | 3 | 4-week volatility-penalised return |
 
-### daily_bar
+### daily_bar — all 15 assets
 | date | ticker | open | high | low | close | volume | tri |
 |------|--------|------|------|-----|-------|--------|-----|
-PK: (date, ticker) — FK: ticker → asset
 
-### weekly_bar
+`PK (date, ticker)` · FK: ticker → asset
+
+### weekly_bar — all 15 assets, W-WED resampled
 | date | ticker | open | high | low | close | volume | tri |
 |------|--------|------|------|-----|-------|--------|-----|
-PK: (date, ticker) — W-WED resampled — FK: ticker → asset
 
-### weekly_alpha
+`PK (date, ticker)` · FK: ticker → asset
+
+### weekly_alpha — ETF-only, long format
 | date | ticker | alpha_id | value |
 |------|--------|----------|-------|
-PK: (date, ticker, alpha_id) — long format — FK: ticker → asset, alpha_id → alpha
 
-### weekly_frs
-| date | ticker | frs1 | frs2 | frs3 |
-|------|--------|------|------|------|
-PK: (date, ticker) — FK: ticker → asset
+`PK (date, ticker, alpha_id)` · FK: ticker → asset, alpha_id → alpha
 
-### FRS Definitions
-Time Window: Next 4 WED close prices
-- FRS1 — Total Return: (P_wk4 - P_wk0) / P_wk0
-- FRS2 — Sharpe Ratio: avg(r_wk1,...,r_wk4) / std(r_wk1,...,r_wk4)
-- FRS3 — Volatility Penalty Return: Return - beta × std(r_wk1,...,r_wk4)
-### FRS
-Time Window Next 4 WED close prices
-FRS1 - Total Return: (P_wk4-P_wk0)/P_wk0
-FRS2 - Sharp Ratio: (avg(r_wk1,...,r_wk4)/std(r_wk1,...,r_wk4))
-FRS3 - Valotility Penalty Return Total: Return - beta * std(r_wk1,...,r_wk4)
+### weekly_frs — ETF-only, long format
+| date | ticker | frs_id | value |
+|------|--------|--------|-------|
+
+`PK (date, ticker, frs_id)` · FK: ticker → asset, frs_id → frs
+
+---
+
+## Asset Coverage
+
+| Table | ETF (×11) | Benchmark (×2) | Index (×2) |
+|-------|-----------|----------------|------------|
+| daily_bar | ✓ | ✓ | ✓ |
+| weekly_bar | ✓ | ✓ | ✓ |
+| weekly_alpha | ✓ | — | — |
+| weekly_frs | ✓ | — | — |
+
+---
+
+## FRS Definitions
+
+Time window: next **4 Wednesday close prices** (weekly TRI series)
+
+| Code | Name | Formula |
+|------|------|---------|
+| FRS1 | Total Return | (P₄ − P₀) / P₀ |
+| FRS2 | Sharpe Ratio | avg(r₁…r₄) / std(r₁…r₄) |
+| FRS3 | Vol-Penalty Return | FRS1 − β × std(r₁…r₄), β = 2.0 |
