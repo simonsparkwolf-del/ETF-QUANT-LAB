@@ -9,21 +9,21 @@ author: Simon
 - No need to waste too much time on thinking how to compose new reasonable indexes.
 - Don't have to try every combination of the indexes manually with a lot of scripts and lines of code.
 
-1. It looks fancy to Sophiane and it's out of his knowledge scope.
+2. It looks fancy to Sophiane and it's out of his knowledge scope.
 
 - ML is the cutting edge topic in the field.
 - ML is black box, instead of economic rationale, we focus on the performance.
 
-1. It really learns something from the training dataset.
+3. It really learns something from the training dataset.
 
 - Unsupervised method like baseline learns nothing from training dataset, which makes out-sample results outruns in-sample results.
 - Unsupervised method like baseline needs a lot of tries to optimize the entire parameters to get a reasonable and sub-optimal outcome.
 
-1. The project is more structured and easy to manage.
+4. The project is more structured and easy to manage.
 
 - We only need to iterate the weights and models to drive our strategy.
 
-1. **Less code work**
+5. **Less code work**
 
 - Compared to baseline model's heavy code. Several lines of code can train a powerful model.
 
