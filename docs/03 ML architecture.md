@@ -75,8 +75,9 @@ flowchart LR
     B -->|compose| D[WSI for weekly ranking]
 ```
 
-#### 3. FRS - Future Return Score (Traget Value for ML model)
 
+
+#### 3. FRS - Future Return Score (Traget Value for ML model)
 
 #### 4. ML model module
 

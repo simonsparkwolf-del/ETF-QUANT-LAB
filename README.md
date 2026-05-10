@@ -9,11 +9,13 @@ The repository of 2026 CUHK BA group W's ETF quant project.
 **Download/Pull the project from main branch!!!** <img width="218" height="45" alt="image" src="https://github.com/user-attachments/assets/874663c0-4d78-4f4b-8ef5-219d74adf160" />
 
 ## Installation
+First generate your python venv and activate it (ask your agent to do so).
 Before you run or develop the project please install the packages and dependencies using command in powershell.
 ```PowerShell
 cd your_project_dir_path
 python -m pip install -e .
 ```
+Whenever run your code, remember only in venv.
 
 ## Folders
 
@@ -37,3 +39,6 @@ python -m pip install -e .
 ## Milestones
 1. April 21st - The first draft of baseline model.
 2. April 26th - Alpha test and ML model architect drafts.
+3. May 3rd - Structured database.
+4. May 8th - ML signal source pilot test.
+5. May 9th - Back test engine is ready.
