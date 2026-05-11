@@ -81,8 +81,11 @@ def save_frs_results(
         "frs_id": mapping["frs_id"].str.extract(r"(\d+)")[0].astype(int).values,
         "note":     mapping["description"].values,
     })
-    conn.execute("DELETE FROM frs")
-    frs_reg.to_sql("frs", conn, if_exists="append", index=False)
+    existing = pd.read_sql("SELECT frs_id FROM frs", conn)
+    existing_ids = set(existing["frs_id"].astype(int).tolist()) if not existing.empty else set()
+    to_add = frs_reg[~frs_reg["frs_id"].isin(existing_ids)]
+    if not to_add.empty:
+        to_add.to_sql("frs", conn, if_exists="append", index=False)
 
     # Write weekly_frs (long format)
     conn.execute("DELETE FROM weekly_frs")

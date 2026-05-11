@@ -3,8 +3,8 @@ from dataclasses import dataclass,field
 from typing import Literal,TYPE_CHECKING
 from abc import ABC,abstractmethod
 from collections import OrderedDict
-from QuantLab.schema.backtest import Action,Trade,Security,Liability
-from QuantLab.schema.backtest_config import BacktestConfig
+from QuantLab.backtest.schema.backtest import Action,Trade,Security,Liability
+from QuantLab.backtest.schema.backtest_config import BacktestConfig
 
 class Trader:
     def __init__(self, config: BacktestConfig):

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import cast
+from typing import cast, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -10,6 +10,9 @@ from matplotlib import pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.ticker import FuncFormatter
 from matplotlib.patches import Patch
+
+if TYPE_CHECKING:
+    from QuantLab.backtest.quote_terminal import QuoteTerminal
 
 
 class BacktestAnalyzer:
@@ -67,6 +70,47 @@ class BacktestAnalyzer:
         avg_turn = float(turnover_t.mean())
         return avg_turn, float(avg_turn * periods_per_year)
 
+    @staticmethod
+    def _calc_trade_week_win_rate(
+        holding_history: pd.DataFrame,
+        value_history: pd.DataFrame,
+    ) -> float:
+        """
+        Win Rate (trade weeks) = profitable weeks / total trade weeks.
+
+        A "trade week" is a week where holdings market value changes (|Δ signed MV| > 0)
+        between this date and the previous date.
+        """
+        if holding_history.empty or len(value_history) < 2:
+            return 0.0
+
+        hh = holding_history.copy()
+        hh["date"] = pd.to_datetime(hh["date"])
+        hh["mv"] = hh["volume"].astype(float) * hh["market_price"].astype(float)
+        hh["signed_mv"] = np.where(hh["direction"] == "short", -hh["mv"].abs(), hh["mv"].abs())
+        pivot = hh.pivot_table(
+            index="date",
+            columns="ticker",
+            values="signed_mv",
+            aggfunc="sum",
+            fill_value=0.0,
+        ).sort_index()
+
+        vh = value_history.sort_values("date").copy()
+        vh["date"] = pd.to_datetime(vh["date"])
+        equity = vh.set_index("date")["total_value"].astype(float)
+        returns = equity.pct_change().replace([np.inf, -np.inf], np.nan)
+
+        # Align all to value_history dates.
+        pivot = pivot.reindex(equity.index, fill_value=0.0)
+        delta_abs = pivot.diff().abs().sum(axis=1)
+        trade_mask = delta_abs > 1e-12
+
+        valid = trade_mask & returns.notna()
+        if valid.sum() == 0:
+            return 0.0
+        return float(((returns > 0) & valid).sum() / valid.sum())
+
     def _calc_metrics(self, value_history: pd.DataFrame, holding_history: pd.DataFrame | None = None) -> dict[str, float | int]:
         value_history = value_history.sort_values("date").copy()
         value_history["date"] = pd.to_datetime(value_history["date"])
@@ -79,6 +123,7 @@ class BacktestAnalyzer:
             turnover_avg, turnover_ann = BacktestAnalyzer._calc_turnover(
                 hh_empty, value_history, periods_per_year
             )
+            win_rate = BacktestAnalyzer._calc_trade_week_win_rate(hh_empty, value_history)
             return {
                 "start_value": float(equity.iloc[0]),
                 "end_value": float(equity.iloc[-1]),
@@ -89,7 +134,7 @@ class BacktestAnalyzer:
                 "max_drawdown": 0.0,
                 "turnover_avg_period": turnover_avg,
                 "turnover_annualized": turnover_ann,
-                "win_rate": 0.0,
+                "win_rate": win_rate,
                 "periods_per_year": int(periods_per_year),
                 "num_periods": int(len(equity)),
             }
@@ -97,7 +142,7 @@ class BacktestAnalyzer:
         periods_per_year = self._infer_periods_per_year(cast(pd.Series, value_history["date"]))
         hh = pd.DataFrame() if holding_history is None else holding_history
         turnover_avg, turnover_ann = self._calc_turnover(hh, value_history, periods_per_year)
-        win_rate = float((returns > 0).mean())
+        win_rate = BacktestAnalyzer._calc_trade_week_win_rate(hh, value_history)
         total_return = equity.iloc[-1] / equity.iloc[0] - 1.0
         annual_return = (1.0 + total_return) ** (periods_per_year / len(returns)) - 1.0
         annual_volatility = returns.std(ddof=1) * np.sqrt(periods_per_year)
@@ -159,9 +204,13 @@ class BacktestAnalyzer:
             f"- Max Drawdown: `{self._fmt_pct(max_drawdown)}`\n"
             f"- Turnover (avg per period): `{self._fmt_pct(turnover_avg)}` — sum(|Δ signed MV|) / (2 × total_value), by date\n"
             f"- Turnover (annualized): `{self._fmt_pct(turnover_ann)}` — avg per period × periods_per_year\n"
-            f"- Win Rate: `{self._fmt_pct(win_rate)}` — share of periods with positive total_value return\n"
+            f"- Win Rate: `{self._fmt_pct(win_rate)}` — profitable weeks / total trade weeks\n"
             f"- Periods Per Year: `{periods_per_year}`\n"
             f"- Number of Periods: `{num_periods}`\n\n"
+            "## Benchmark / Alpha\n"
+            f"- Annual Excess Return vs SPY: `{self._fmt_pct(float(metrics.get('excess_return_annual_vs_spy', 0.0)))}`\n"
+            f"- CAPM Alpha (annualized) vs SPY: `{self._fmt_pct(float(metrics.get('capm_alpha_annual_vs_spy', 0.0)))}`\n"
+            f"- CAPM Beta vs SPY: `{float(metrics.get('capm_beta_vs_spy', 0.0)):.3f}`\n\n"
             "## Exposure Notes\n"
             "- `Exposure` means the portfolio's market value exposure to risk.\n"
             "- In this implementation, `long` exposure is positive and `short` exposure is negative.\n"
@@ -184,7 +233,12 @@ class BacktestAnalyzer:
         ax.xaxis.set_major_formatter(formatter)
         ax.tick_params(axis="x", labelrotation=0)
 
-    def evaluate(self, value_records: list[dict], holding_records: list[dict]) -> dict[str, float | int]:
+    def evaluate(
+        self,
+        value_records: list[dict],
+        holding_records: list[dict],
+        terminal: QuoteTerminal | None = None,
+    ) -> dict[str, float | int]:
         value_history = pd.DataFrame.from_records(value_records)
         holding_history = pd.DataFrame.from_records(holding_records)
         if value_history.empty:
@@ -198,6 +252,46 @@ class BacktestAnalyzer:
 
         hh_for_metrics = holding_history if not holding_history.empty else pd.DataFrame()
         metrics = self._calc_metrics(value_history, hh_for_metrics)
+
+        # --- SPY comparison + CAPM alpha (annualized) ---
+        if terminal is not None:
+            spy_bars = terminal.benchmarks()
+            if not spy_bars.empty:
+                spy = spy_bars.copy()
+                spy["date"] = pd.to_datetime(spy["date"])
+                spy = spy.loc[spy["ticker"] == "SPY", ["date", "close"]].sort_values("date")
+                if not spy.empty:
+                    equity = value_history.sort_values("date").set_index("date")["total_value"].astype(float)
+                    nav = equity / float(equity.iloc[0])
+
+                    spy_close = spy.set_index("date")["close"].astype(float)
+                    spy_nav = spy_close / float(spy_close.iloc[0])
+
+                    # Align on common dates
+                    aligned = pd.concat(
+                        [nav.rename("nav"), spy_nav.rename("spy")],
+                        axis=1,
+                        join="inner",
+                    ).dropna()
+
+                    if len(aligned) >= 3:
+                        r_p = aligned["nav"].pct_change().dropna()
+                        r_m = aligned["spy"].pct_change().dropna()
+                        common = pd.concat([r_p.rename("rp"), r_m.rename("rm")], axis=1, join="inner").dropna()
+                        if len(common) >= 3:
+                            periods_per_year = int(metrics.get("periods_per_year", 52))
+                            excess = common["rp"] - common["rm"]
+                            metrics["excess_return_annual_vs_spy"] = float(excess.mean() * periods_per_year)
+
+                            # CAPM regression: rp = a + b*rm + e
+                            X = np.vstack([np.ones(len(common)), common["rm"].to_numpy(dtype=float)]).T
+                            y = common["rp"].to_numpy(dtype=float)
+                            coef, *_ = np.linalg.lstsq(X, y, rcond=None)
+                            a, b = float(coef[0]), float(coef[1])
+                            metrics["capm_alpha_annual_vs_spy"] = float(a * periods_per_year)
+                            metrics["capm_beta_vs_spy"] = float(b)
+
+                        # Chart is embedded into all_in_one_panel; no standalone file.
 
         if not self.save_artifacts:
             return metrics
@@ -253,6 +347,7 @@ class BacktestAnalyzer:
 
         equity = value_history["total_value"].astype(float)
         drawdown = equity / equity.cummax() - 1.0
+
 
         plt.style.use("seaborn-v0_8-whitegrid")
         holding = None
@@ -533,86 +628,125 @@ class BacktestAnalyzer:
             plt.close(fig4)
 
         # High-resolution all-in-one dashboard panel.
-        fig_panel, axes_panel = plt.subplots(9, 1, figsize=(24, 54))
+        # Put NAV vs SPY as the first panel.
+        fig_panel, axes_panel = plt.subplots(10, 1, figsize=(24, 60))
 
-        # 1) Total value
-        axes_panel[0].plot(value_history["date"], equity, color="#1f77b4", linewidth=2)
-        axes_panel[0].set_title("Total Value")
-        axes_panel[0].set_ylabel("Total Value")
-        axes_panel[0].yaxis.set_major_formatter(FuncFormatter(lambda y, _: f"{y:,.0f}"))
-        axes_panel[0].grid(color="black", linewidth=0.4, alpha=0.25)
-        self._style_date_axis(axes_panel[0])
+        # 1) NAV vs SPY
+        ax_spy = axes_panel[0]
+        if terminal is not None:
+            spy_bars = terminal.benchmarks()
+        else:
+            spy_bars = pd.DataFrame()
+        if not spy_bars.empty:
+            spy = spy_bars.copy()
+            spy["date"] = pd.to_datetime(spy["date"])
+            spy = spy.loc[spy["ticker"] == "SPY", ["date", "close"]].sort_values("date")
+            if not spy.empty:
+                nav = (
+                    value_history.sort_values("date")
+                    .set_index("date")["total_value"]
+                    .astype(float)
+                )
+                nav = nav / float(nav.iloc[0])
+                spy_close = spy.set_index("date")["close"].astype(float)
+                spy_nav = spy_close / float(spy_close.iloc[0])
+                aligned = pd.concat([nav.rename("nav"), spy_nav.rename("spy")], axis=1, join="inner").dropna()
+            else:
+                aligned = pd.DataFrame()
+        else:
+            aligned = pd.DataFrame()
 
-        # 2) Drawdown
-        axes_panel[1].fill_between(value_history["date"], drawdown, 0.0, color="#d62728", alpha=0.28)
-        axes_panel[1].set_title("Drawdown")
-        axes_panel[1].set_ylabel("Drawdown")
-        axes_panel[1].yaxis.set_major_formatter(FuncFormatter(lambda y, _: f"{y * 100:.1f}%"))
+        if not aligned.empty:
+            ax_spy.plot(aligned.index, aligned["nav"], label="Portfolio NAV", linewidth=2.2, color="#1f77b4")
+            ax_spy.plot(aligned.index, aligned["spy"], label="SPY NAV", linewidth=2.0, color="#ff7f0e")
+            ax_spy.set_title("NAV vs SPY")
+            ax_spy.set_ylabel("Normalized Value")
+            ax_spy.grid(color="black", linewidth=0.4, alpha=0.25)
+            ax_spy.legend(loc="upper left")
+            self._style_date_axis(ax_spy)
+        else:
+            ax_spy.set_title("NAV vs SPY (No Data)")
+            ax_spy.axis("off")
+
+        # 2) Total value
+        axes_panel[1].plot(value_history["date"], equity, color="#1f77b4", linewidth=2)
+        axes_panel[1].set_title("Total Value")
+        axes_panel[1].set_ylabel("Total Value")
+        axes_panel[1].yaxis.set_major_formatter(FuncFormatter(lambda y, _: f"{y:,.0f}"))
         axes_panel[1].grid(color="black", linewidth=0.4, alpha=0.25)
         self._style_date_axis(axes_panel[1])
 
-        # 3) Net exposure
+        # 3) Drawdown
+        axes_panel[2].fill_between(value_history["date"], drawdown, 0.0, color="#d62728", alpha=0.28)
+        axes_panel[2].set_title("Drawdown")
+        axes_panel[2].set_ylabel("Drawdown")
+        axes_panel[2].yaxis.set_major_formatter(FuncFormatter(lambda y, _: f"{y * 100:.1f}%"))
+        axes_panel[2].grid(color="black", linewidth=0.4, alpha=0.25)
+        self._style_date_axis(axes_panel[2])
+
+
+        # 4) Net exposure
         if net_exposure_series is not None:
-            axes_panel[2].plot(net_exposure_series["date"], net_exposure_series["signed_market_value"], color="#9467bd", linewidth=2)
-            axes_panel[2].axhline(0.0, color="black", linewidth=0.8, alpha=0.8)
-            axes_panel[2].set_title("Net Exposure")
-            axes_panel[2].set_ylabel("Exposure")
-            axes_panel[2].yaxis.set_major_formatter(FuncFormatter(lambda y, _: f"{y:,.0f}"))
-            axes_panel[2].grid(color="black", linewidth=0.4, alpha=0.25)
-            self._style_date_axis(axes_panel[2])
+            axes_panel[3].plot(net_exposure_series["date"], net_exposure_series["signed_market_value"], color="#9467bd", linewidth=2)
+            axes_panel[3].axhline(0.0, color="black", linewidth=0.8, alpha=0.8)
+            axes_panel[3].set_title("Net Exposure")
+            axes_panel[3].set_ylabel("Exposure")
+            axes_panel[3].yaxis.set_major_formatter(FuncFormatter(lambda y, _: f"{y:,.0f}"))
+            axes_panel[3].grid(color="black", linewidth=0.4, alpha=0.25)
+            self._style_date_axis(axes_panel[3])
         else:
-            axes_panel[2].set_title("Net Exposure (No Data)")
-            axes_panel[2].axis("off")
+            axes_panel[3].set_title("Net Exposure (No Data)")
+            axes_panel[3].axis("off")
 
-        # 4) Asset/liability component trajectories
-        axes_panel[3].plot(dates, cash_values, color="#7f7f7f", linewidth=1.8, label="Cash")
-        axes_panel[3].plot(dates, security_values, color="#2ca02c", linewidth=1.8, label="Securities")
-        axes_panel[3].plot(dates, liability_values, color="#d62728", linewidth=1.8, label="Liability (negative)")
-        axes_panel[3].axhline(0.0, color="black", linewidth=0.8, alpha=0.8)
-        axes_panel[3].set_title("Asset / Liability Components")
-        axes_panel[3].set_ylabel("Value")
-        axes_panel[3].yaxis.set_major_formatter(FuncFormatter(lambda y, _: f"{y:,.0f}"))
-        axes_panel[3].grid(color="black", linewidth=0.4, alpha=0.25)
-        axes_panel[3].legend(loc="upper left")
-        self._style_date_axis(axes_panel[3])
-
-        # 5) Total value trajectory
-        axes_panel[4].plot(dates, value_components["total_value"], color="#1f77b4", linewidth=2.1)
-        axes_panel[4].set_title("Total Value Trajectory")
-        axes_panel[4].set_ylabel("Total Value")
+        # 5) Asset/liability component trajectories
+        axes_panel[4].plot(dates, cash_values, color="#7f7f7f", linewidth=1.8, label="Cash")
+        axes_panel[4].plot(dates, security_values, color="#2ca02c", linewidth=1.8, label="Securities")
+        axes_panel[4].plot(dates, liability_values, color="#d62728", linewidth=1.8, label="Liability (negative)")
+        axes_panel[4].axhline(0.0, color="black", linewidth=0.8, alpha=0.8)
+        axes_panel[4].set_title("Asset / Liability Components")
+        axes_panel[4].set_ylabel("Value")
         axes_panel[4].yaxis.set_major_formatter(FuncFormatter(lambda y, _: f"{y:,.0f}"))
         axes_panel[4].grid(color="black", linewidth=0.4, alpha=0.25)
+        axes_panel[4].legend(loc="upper left")
         self._style_date_axis(axes_panel[4])
 
-        # 6) Cumulative fee amount
-        if "long_fee_cum" in value_history.columns and "short_fee_cum" in value_history.columns:
-            axes_panel[5].plot(value_history["date"], value_history["long_fee_cum"].astype(float), color="#2ca02c", linewidth=1.9, label="Long")
-            axes_panel[5].plot(value_history["date"], value_history["short_fee_cum"].astype(float), color="#d62728", linewidth=1.9, label="Short")
-            axes_panel[5].set_title("Cumulative Trading Fee Amount")
-            axes_panel[5].set_ylabel("Amount")
-            axes_panel[5].yaxis.set_major_formatter(FuncFormatter(lambda y, _: f"{y:,.2f}"))
-            axes_panel[5].grid(color="black", linewidth=0.4, alpha=0.25)
-            axes_panel[5].legend(loc="upper left")
-            self._style_date_axis(axes_panel[5])
-        else:
-            axes_panel[5].set_title("Cumulative Trading Fee Amount (No Data)")
-            axes_panel[5].axis("off")
+        # 6) Total value trajectory
+        axes_panel[5].plot(dates, value_components["total_value"], color="#1f77b4", linewidth=2.1)
+        axes_panel[5].set_title("Total Value Trajectory")
+        axes_panel[5].set_ylabel("Total Value")
+        axes_panel[5].yaxis.set_major_formatter(FuncFormatter(lambda y, _: f"{y:,.0f}"))
+        axes_panel[5].grid(color="black", linewidth=0.4, alpha=0.25)
+        self._style_date_axis(axes_panel[5])
 
-        # 7) Cumulative fee rate
-        if "long_fee_rate_cum" in value_history.columns and "short_fee_rate_cum" in value_history.columns:
-            axes_panel[6].plot(value_history["date"], value_history["long_fee_rate_cum"].astype(float), color="#2ca02c", linewidth=1.9, label="Long")
-            axes_panel[6].plot(value_history["date"], value_history["short_fee_rate_cum"].astype(float), color="#d62728", linewidth=1.9, label="Short")
-            axes_panel[6].set_title("Cumulative Trading Fee Rate")
-            axes_panel[6].set_ylabel("Fee Rate")
-            axes_panel[6].yaxis.set_major_formatter(FuncFormatter(lambda y, _: f"{y * 100:.2f}%"))
+        # 7) Cumulative fee amount
+        if "long_fee_cum" in value_history.columns and "short_fee_cum" in value_history.columns:
+            axes_panel[6].plot(value_history["date"], value_history["long_fee_cum"].astype(float), color="#2ca02c", linewidth=1.9, label="Long")
+            axes_panel[6].plot(value_history["date"], value_history["short_fee_cum"].astype(float), color="#d62728", linewidth=1.9, label="Short")
+            axes_panel[6].set_title("Cumulative Trading Fee Amount")
+            axes_panel[6].set_ylabel("Amount")
+            axes_panel[6].yaxis.set_major_formatter(FuncFormatter(lambda y, _: f"{y:,.2f}"))
             axes_panel[6].grid(color="black", linewidth=0.4, alpha=0.25)
             axes_panel[6].legend(loc="upper left")
             self._style_date_axis(axes_panel[6])
         else:
-            axes_panel[6].set_title("Cumulative Trading Fee Rate (No Data)")
+            axes_panel[6].set_title("Cumulative Trading Fee Amount (No Data)")
             axes_panel[6].axis("off")
 
-        # 8) Heatmap
+        # 8) Cumulative fee rate
+        if "long_fee_rate_cum" in value_history.columns and "short_fee_rate_cum" in value_history.columns:
+            axes_panel[7].plot(value_history["date"], value_history["long_fee_rate_cum"].astype(float), color="#2ca02c", linewidth=1.9, label="Long")
+            axes_panel[7].plot(value_history["date"], value_history["short_fee_rate_cum"].astype(float), color="#d62728", linewidth=1.9, label="Short")
+            axes_panel[7].set_title("Cumulative Trading Fee Rate")
+            axes_panel[7].set_ylabel("Fee Rate")
+            axes_panel[7].yaxis.set_major_formatter(FuncFormatter(lambda y, _: f"{y * 100:.2f}%"))
+            axes_panel[7].grid(color="black", linewidth=0.4, alpha=0.25)
+            axes_panel[7].legend(loc="upper left")
+            self._style_date_axis(axes_panel[7])
+        else:
+            axes_panel[7].set_title("Cumulative Trading Fee Rate (No Data)")
+            axes_panel[7].axis("off")
+
+        # 9) Heatmap
         if holding is not None:
             panel_heatmap = holding.pivot_table(
                 index="ticker",
@@ -622,7 +756,7 @@ class BacktestAnalyzer:
                 fill_value=0.0,
             )
             if not panel_heatmap.empty:
-                ax_hm = axes_panel[7]
+                ax_hm = axes_panel[8]
                 ax_hm.set_facecolor("white")
                 ax_hm.set_title("Holding Exposure Heatmap (Ticker x Date)")
                 ax_hm.set_xlabel("Date")
@@ -663,13 +797,13 @@ class BacktestAnalyzer:
                 ax_hm.tick_params(which="minor", bottom=False, left=False)
                 fig_panel.colorbar(sc_hm, ax=ax_hm, label="Signed Exposure")
             else:
-                axes_panel[7].set_title("Holding Exposure Heatmap (No Data)")
-                axes_panel[7].axis("off")
+                axes_panel[8].set_title("Holding Exposure Heatmap (No Data)")
+                axes_panel[8].axis("off")
         else:
-            axes_panel[7].set_title("Holding Exposure Heatmap (No Data)")
-            axes_panel[7].axis("off")
+            axes_panel[8].set_title("Holding Exposure Heatmap (No Data)")
+            axes_panel[8].axis("off")
 
-        # 9) Per-ETF stacked bars
+        # 10) Per-ETF stacked bars
         if holding is not None:
             panel_long = (
                 holding.loc[holding["direction"] == "long"]
@@ -698,7 +832,7 @@ class BacktestAnalyzer:
                 if other_tickers:
                     panel_long_display["OTHER"] = panel_long.loc[:, other_tickers].sum(axis=1)
                     panel_short_display["OTHER"] = panel_short.loc[:, other_tickers].sum(axis=1)
-                ax_stk = axes_panel[8]
+                ax_stk = axes_panel[9]
                 color_map = plt.get_cmap(self.etf_cmap)
                 color_by_ticker = {ticker: color_map(i % 20) for i, ticker in enumerate(display_tickers)}
                 bar_width = 4.0
@@ -721,11 +855,11 @@ class BacktestAnalyzer:
                 self._style_date_axis(ax_stk)
                 ax_stk.legend(handles=legend_handles, loc="upper left", bbox_to_anchor=(1.01, 1.0), fontsize=8, title="ETF")
             else:
-                axes_panel[8].set_title("Per-ETF Stacked Bars (No Data)")
-                axes_panel[8].axis("off")
+                axes_panel[9].set_title("Per-ETF Stacked Bars (No Data)")
+                axes_panel[9].axis("off")
         else:
-            axes_panel[8].set_title("Per-ETF Stacked Bars (No Data)")
-            axes_panel[8].axis("off")
+            axes_panel[9].set_title("Per-ETF Stacked Bars (No Data)")
+            axes_panel[9].axis("off")
 
         fig_panel.tight_layout()
         fig_panel.savefig(self._out_path("all_in_one_panel.png"), dpi=300)

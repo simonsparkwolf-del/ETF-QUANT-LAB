@@ -6,10 +6,12 @@ Tables
 asset        — ticker master (ticker, security_name, category)
 alpha        — alpha factor definitions (alpha_id, alpha_name, applicable)
 frs          — FRS metric definitions (frs_id, note)
+signal       — signal definitions (signal_id, note, category)
 daily_bar    — daily OHLCV + TRI per ticker
 weekly_bar   — W-WED resampled OHLCV + TRI per ticker
 weekly_alpha — alpha values, long format (date, ticker, alpha_id, value)
-weekly_frs   — FRS labels per ticker (date, ticker, frs1, frs2, frs3)
+weekly_frs   — FRS labels, long format (date, ticker, frs_id, value)
+weekly_signal — signal values, long format (date, ticker, signal_id, value)
 """
 
 from __future__ import annotations
@@ -63,6 +65,12 @@ CREATE TABLE IF NOT EXISTS frs (
     note     TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS signal (
+    signal_id INTEGER PRIMARY KEY,
+    note      TEXT NOT NULL,
+    category  TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS daily_bar (
     date    TEXT NOT NULL,
     ticker  TEXT NOT NULL REFERENCES asset(ticker),
@@ -101,6 +109,14 @@ CREATE TABLE IF NOT EXISTS weekly_frs (
     frs_id INTEGER NOT NULL REFERENCES frs(frs_id),
     value    REAL,
     PRIMARY KEY (date, ticker, frs_id)
+);
+
+CREATE TABLE IF NOT EXISTS weekly_signal (
+    date      TEXT    NOT NULL,
+    ticker    TEXT    NOT NULL REFERENCES asset(ticker),
+    signal_id INTEGER NOT NULL REFERENCES signal(signal_id),
+    value     REAL,
+    PRIMARY KEY (date, ticker, signal_id)
 );
 """
 
