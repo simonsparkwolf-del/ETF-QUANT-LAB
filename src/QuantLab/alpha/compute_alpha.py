@@ -62,8 +62,11 @@ def save_alpha_results(
     # Seed alpha registry
     mapping = get_mapping_df().rename(columns={"desc": "alpha_name", "group": "applicable"})
     mapping = mapping[["alpha_id", "alpha_name", "applicable"]]
-    conn.execute("DELETE FROM alpha")
-    mapping.to_sql("alpha", conn, if_exists="append", index=False)
+    existing = pd.read_sql("SELECT alpha_id FROM alpha", conn)
+    existing_ids = set(existing["alpha_id"].astype(int).tolist()) if not existing.empty else set()
+    to_add = mapping[~mapping["alpha_id"].isin(existing_ids)]
+    if not to_add.empty:
+        to_add.to_sql("alpha", conn, if_exists="append", index=False)
 
     # Write weekly_alpha
     conn.execute("DELETE FROM weekly_alpha")
