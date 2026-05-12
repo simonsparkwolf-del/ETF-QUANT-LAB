@@ -10,7 +10,12 @@ requires-python = ">=3.10"
 dependencies = [
     "numpy",
     "pandas",
-    "matplotlib"
+    "matplotlib",
+    "tqdm",
+    "scipy",
+    "scikit-learn",
+    "lightgbm",
+    "xgboost",
 ]
 
 [tool.setuptools]

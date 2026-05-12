@@ -101,7 +101,10 @@ class BacktestEngine:
 
             if actions:
                 trades = self.on_actions(actions)
-                self.account.on_trades(trades)
+                sell_trades = [t for t in trades if t.side == "sell"]
+                buy_trades  = [t for t in trades if t.side == "buy"]
+                self.account.on_trades(sell_trades)
+                self.account.on_trades(buy_trades)
 
             self.account.snapshot(today)
             today += timedelta(days=1)

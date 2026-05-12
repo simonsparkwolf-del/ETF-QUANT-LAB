@@ -90,16 +90,22 @@ def series_signal(
     """
 
     def decorator(fn: Callable[..., Any]) -> Callable[..., pd.Series]:
-        # ML: panel_fn(big)->DataFrame[ticker,date,pred]
-        first_anno = getattr(fn, "__annotations__", {}).get(next(iter(getattr(fn, "__code__", None).co_varnames), ""), None)
-        # More robust: inspect signature first param annotation
+        # Resolve first-param annotation, handling PEP-563 string annotations
+        # (from __future__ import annotations turns all hints into strings).
+        first_anno = None
         try:
             import inspect
+            import typing
 
             sig = inspect.signature(fn)
             params = list(sig.parameters.values())
             if params:
-                first_anno = params[0].annotation
+                raw = params[0].annotation
+                if isinstance(raw, str):
+                    resolved = typing.get_type_hints(fn)
+                    first_anno = resolved.get(params[0].name, raw)
+                else:
+                    first_anno = raw
         except Exception:
             pass
 
