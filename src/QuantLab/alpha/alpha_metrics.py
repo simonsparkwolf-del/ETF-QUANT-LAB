@@ -99,7 +99,6 @@ def alpha_9(p: dict) -> pd.DataFrame:
     inner = _tern(cond2, dc, -dc)
     return _tern(cond1, dc, inner)
 
-
 @register_alpha(id=10, group="A", required=["close"],
                 desc="rank(alpha_9 logic with window 4)")
 def alpha_10(p: dict) -> pd.DataFrame:
@@ -796,8 +795,342 @@ def alpha_98(p: dict) -> pd.DataFrame:
     return part1 - part2
 
 
-# ── Add new alphas below ──────────────────────────────────────────────────────
-# Example:
-# @register_alpha(id=102, group="custom", required=["close"], desc="My alpha")
-# def alpha_102(p: dict) -> pd.DataFrame:
-#     return rank(delta(p["close"], 5))
+# ═════════════════════════════════════════════════════════════════════════════
+#  GROUP mac — Macro features (SPY / VIX / USGG10YR)
+#  IDs 102–107  |  applicable = 'mac'  in DB
+#  Broadcast one date-level value to all tickers (cross-section constant).
+#  Requires SPY / VIX / USGG10YR rows present in panel["close"] columns.
+# ═════════════════════════════════════════════════════════════════════════════
+
+def _broadcast(series: pd.Series, ref: pd.DataFrame) -> pd.DataFrame:
+    """Broadcast a date-indexed Series to the full panel shape (same index/columns as ref)."""
+    aligned = series.reindex(ref.index)
+    return pd.DataFrame(
+        np.tile(aligned.values[:, None], (1, len(ref.columns))),
+        index=ref.index,
+        columns=ref.columns,
+    )
+
+
+def _rolling_z(s: pd.Series, w: int, min_periods: int = 4) -> pd.Series:
+    mu = s.rolling(w, min_periods=min_periods).mean()
+    sd = s.rolling(w, min_periods=min_periods).std().replace(0.0, np.nan)
+    return (s - mu) / sd
+
+
+@register_alpha(id=102, group="mac", required=["index"],
+                desc="mac_SPY_ret: SPY 1-week return, broadcast to all tickers")
+def alpha_102(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    ix = p.get("index")
+    spy = ix["SPY"].pct_change() if (ix is not None and "SPY" in ix.columns) else pd.Series(np.nan, index=c.index)
+    return _broadcast(spy, c)
+
+
+@register_alpha(id=103, group="mac", required=["index"],
+                desc="mac_VIX: VIX close level, broadcast to all tickers")
+def alpha_103(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    ix = p.get("index")
+    vix = ix["VIX"] if (ix is not None and "VIX" in ix.columns) else pd.Series(np.nan, index=c.index)
+    return _broadcast(vix, c)
+
+
+@register_alpha(id=104, group="mac", required=["index"],
+                desc="mac_dUS10Y: 1-period diff of USGG10YR, broadcast to all tickers")
+def alpha_104(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    ix = p.get("index")
+    us10y = ix["USGG10YR"] if (ix is not None and "USGG10YR" in ix.columns) else pd.Series(np.nan, index=c.index)
+    return _broadcast(us10y.diff(), c)
+
+
+@register_alpha(id=105, group="mac", required=["index"],
+                desc="mac_SPY_ret_z: 12-week rolling z-score of SPY weekly return")
+def alpha_105(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    ix = p.get("index")
+    spy = ix["SPY"].pct_change() if (ix is not None and "SPY" in ix.columns) else pd.Series(np.nan, index=c.index)
+    return _broadcast(_rolling_z(spy, 12), c)
+
+
+@register_alpha(id=106, group="mac", required=["index"],
+                desc="mac_VIX_z: 12-week rolling z-score of VIX level")
+def alpha_106(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    ix = p.get("index")
+    vix = ix["VIX"] if (ix is not None and "VIX" in ix.columns) else pd.Series(np.nan, index=c.index)
+    return _broadcast(_rolling_z(vix, 12), c)
+
+
+@register_alpha(id=107, group="mac", required=["index"],
+                desc="mac_dUS10Y_z: 12-week rolling z-score of USGG10YR 1-period diff")
+def alpha_107(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    ix = p.get("index")
+    us10y = ix["USGG10YR"] if (ix is not None and "USGG10YR" in ix.columns) else pd.Series(np.nan, index=c.index)
+    return _broadcast(_rolling_z(us10y.diff(), 12), c)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  GROUP andy — Per-ticker derived factors
+#  IDs 108–137  |  applicable = 'andy'  in DB
+#  All rolling windows are right-aligned (no look-ahead).
+#  Requires SPY rows in panel["close"] for rs_spy and corrspy families.
+# ═════════════════════════════════════════════════════════════════════════════
+
+def _corr_with_spy(
+    close: pd.DataFrame,
+    w: int,
+    min_p: int,
+    spy_ret: pd.Series | None = None,
+) -> pd.DataFrame:
+    ret1 = close.pct_change()
+    if spy_ret is None:
+        return pd.DataFrame(np.nan, index=close.index, columns=close.columns)
+    return -(ret1.rolling(w, min_periods=min_p).corr(spy_ret).abs())
+
+
+# --- Momentum (raw pct return) ---
+
+@register_alpha(id=108, group="andy", required=["close"],
+                desc="ext_mom_r1w: 1-week price return")
+def alpha_108(p: dict) -> pd.DataFrame:
+    return p["close"].pct_change(1)
+
+
+@register_alpha(id=109, group="andy", required=["close"],
+                desc="ext_mom_r4w: 4-week price return")
+def alpha_109(p: dict) -> pd.DataFrame:
+    return p["close"].pct_change(4)
+
+
+@register_alpha(id=110, group="andy", required=["close"],
+                desc="ext_mom_r12w: 12-week price return")
+def alpha_110(p: dict) -> pd.DataFrame:
+    return p["close"].pct_change(12)
+
+
+@register_alpha(id=111, group="andy", required=["close"],
+                desc="ext_mom_r26w: 26-week price return")
+def alpha_111(p: dict) -> pd.DataFrame:
+    return p["close"].pct_change(26)
+
+
+@register_alpha(id=112, group="andy", required=["close"],
+                desc="ext_mom_r52w: 52-week price return")
+def alpha_112(p: dict) -> pd.DataFrame:
+    return p["close"].pct_change(52)
+
+
+# --- Risk-adjusted momentum (return / rolling std) ---
+
+@register_alpha(id=113, group="andy", required=["close"],
+                desc="ext_rmom_r4w: 4-week return / rolling 4w weekly-return std")
+def alpha_113(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    sd = c.pct_change().rolling(4, min_periods=2).std().replace(0.0, np.nan)
+    return c.pct_change(4) / sd
+
+
+@register_alpha(id=114, group="andy", required=["close"],
+                desc="ext_rmom_r12w: 12-week return / rolling 12w weekly-return std")
+def alpha_114(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    sd = c.pct_change().rolling(12, min_periods=4).std().replace(0.0, np.nan)
+    return c.pct_change(12) / sd
+
+
+@register_alpha(id=115, group="andy", required=["close"],
+                desc="ext_rmom_r26w: 26-week return / rolling 26w weekly-return std")
+def alpha_115(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    sd = c.pct_change().rolling(26, min_periods=9).std().replace(0.0, np.nan)
+    return c.pct_change(26) / sd
+
+
+# --- Realised volatility (negated: low-vol premium) ---
+
+@register_alpha(id=116, group="andy", required=["close"],
+                desc="ext_vol_neg_12w: negative 12-week rolling std of weekly returns")
+def alpha_116(p: dict) -> pd.DataFrame:
+    return -p["close"].pct_change().rolling(12, min_periods=4).std()
+
+
+@register_alpha(id=117, group="andy", required=["close"],
+                desc="ext_vol_neg_26w: negative 26-week rolling std of weekly returns")
+def alpha_117(p: dict) -> pd.DataFrame:
+    return -p["close"].pct_change().rolling(26, min_periods=9).std()
+
+
+@register_alpha(id=118, group="andy", required=["close"],
+                desc="ext_vol_neg_52w: negative 52-week rolling std of weekly returns")
+def alpha_118(p: dict) -> pd.DataFrame:
+    return -p["close"].pct_change().rolling(52, min_periods=17).std()
+
+
+# --- Log dollar volume (rolling mean) ---
+
+@register_alpha(id=119, group="andy", required=["close", "volume"],
+                desc="ext_dvol_log4w: 4-week rolling mean of log1p(close * volume)")
+def alpha_119(p: dict) -> pd.DataFrame:
+    ldv = np.log1p((p["close"] * p["volume"]).clip(lower=0))
+    return ldv.rolling(4, min_periods=2).mean()
+
+
+@register_alpha(id=120, group="andy", required=["close", "volume"],
+                desc="ext_dvol_log12w: 12-week rolling mean of log1p(close * volume)")
+def alpha_120(p: dict) -> pd.DataFrame:
+    ldv = np.log1p((p["close"] * p["volume"]).clip(lower=0))
+    return ldv.rolling(12, min_periods=4).mean()
+
+
+@register_alpha(id=121, group="andy", required=["close", "volume"],
+                desc="ext_dvol_log26w: 26-week rolling mean of log1p(close * volume)")
+def alpha_121(p: dict) -> pd.DataFrame:
+    ldv = np.log1p((p["close"] * p["volume"]).clip(lower=0))
+    return ldv.rolling(26, min_periods=9).mean()
+
+
+# --- Amihud illiquidity (negated) ---
+
+@register_alpha(id=122, group="andy", required=["close", "volume"],
+                desc="ext_amh_neg_4w: negative 4-week rolling mean Amihud ratio")
+def alpha_122(p: dict) -> pd.DataFrame:
+    dvol = (p["close"] * p["volume"]).replace(0.0, np.nan)
+    amihud = p["close"].pct_change().abs() / dvol
+    return -amihud.rolling(4, min_periods=2).mean()
+
+
+@register_alpha(id=123, group="andy", required=["close", "volume"],
+                desc="ext_amh_neg_12w: negative 12-week rolling mean Amihud ratio")
+def alpha_123(p: dict) -> pd.DataFrame:
+    dvol = (p["close"] * p["volume"]).replace(0.0, np.nan)
+    amihud = p["close"].pct_change().abs() / dvol
+    return -amihud.rolling(12, min_periods=4).mean()
+
+
+@register_alpha(id=124, group="andy", required=["close", "volume"],
+                desc="ext_amh_neg_26w: negative 26-week rolling mean Amihud ratio")
+def alpha_124(p: dict) -> pd.DataFrame:
+    dvol = (p["close"] * p["volume"]).replace(0.0, np.nan)
+    amihud = p["close"].pct_change().abs() / dvol
+    return -amihud.rolling(26, min_periods=9).mean()
+
+
+# --- Distance from rolling high (drawdown-from-peak) ---
+
+@register_alpha(id=125, group="andy", required=["close"],
+                desc="ext_dd_12w: close / rolling_max(close, 12w) - 1")
+def alpha_125(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    return c / c.rolling(12, min_periods=4).max() - 1
+
+
+@register_alpha(id=126, group="andy", required=["close"],
+                desc="ext_dd_26w: close / rolling_max(close, 26w) - 1")
+def alpha_126(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    return c / c.rolling(26, min_periods=9).max() - 1
+
+
+@register_alpha(id=127, group="andy", required=["close"],
+                desc="ext_dd_52w: close / rolling_max(close, 52w) - 1")
+def alpha_127(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    return c / c.rolling(52, min_periods=17).max() - 1
+
+
+# --- Distance from moving average ---
+
+@register_alpha(id=128, group="andy", required=["close"],
+                desc="ext_ma_4w: close / MA(4w) - 1")
+def alpha_128(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    return c / c.rolling(4, min_periods=2).mean() - 1
+
+
+@register_alpha(id=129, group="andy", required=["close"],
+                desc="ext_ma_12w: close / MA(12w) - 1")
+def alpha_129(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    return c / c.rolling(12, min_periods=4).mean() - 1
+
+
+@register_alpha(id=130, group="andy", required=["close"],
+                desc="ext_ma_52w: close / MA(52w) - 1")
+def alpha_130(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    return c / c.rolling(52, min_periods=17).mean() - 1
+
+
+# --- Relative strength vs SPY ---
+
+@register_alpha(id=131, group="andy", required=["close", "index"],
+                desc="ext_rs_spy_r1w: ETF 1w return minus SPY 1w return")
+def alpha_131(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    ix = p.get("index")
+    etf_ret = c.pct_change(1)
+    if ix is None or "SPY" not in ix.columns:
+        return etf_ret
+    return etf_ret.sub(ix["SPY"].pct_change(1), axis=0)
+
+
+@register_alpha(id=132, group="andy", required=["close", "index"],
+                desc="ext_rs_spy_r4w: ETF 4w return minus SPY 4w return")
+def alpha_132(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    ix = p.get("index")
+    etf_ret = c.pct_change(4)
+    if ix is None or "SPY" not in ix.columns:
+        return etf_ret
+    return etf_ret.sub(ix["SPY"].pct_change(4), axis=0)
+
+
+@register_alpha(id=133, group="andy", required=["close", "index"],
+                desc="ext_rs_spy_r12w: ETF 12w return minus SPY 12w return")
+def alpha_133(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    ix = p.get("index")
+    etf_ret = c.pct_change(12)
+    if ix is None or "SPY" not in ix.columns:
+        return etf_ret
+    return etf_ret.sub(ix["SPY"].pct_change(12), axis=0)
+
+
+@register_alpha(id=134, group="andy", required=["close", "index"],
+                desc="ext_rs_spy_r26w: ETF 26w return minus SPY 26w return")
+def alpha_134(p: dict) -> pd.DataFrame:
+    c = p["close"]
+    ix = p.get("index")
+    etf_ret = c.pct_change(26)
+    if ix is None or "SPY" not in ix.columns:
+        return etf_ret
+    return etf_ret.sub(ix["SPY"].pct_change(26), axis=0)
+
+
+# --- Negated rolling |corr| with SPY (diversification factor) ---
+
+@register_alpha(id=135, group="andy", required=["close", "index"],
+                desc="ext_corrspy_neg_12w: negative |12w rolling corr of weekly returns with SPY|")
+def alpha_135(p: dict) -> pd.DataFrame:
+    ix = p.get("index")
+    spy_ret = ix["SPY"].pct_change() if (ix is not None and "SPY" in ix.columns) else None
+    return _corr_with_spy(p["close"], 12, 4, spy_ret)
+
+
+@register_alpha(id=136, group="andy", required=["close", "index"],
+                desc="ext_corrspy_neg_26w: negative |26w rolling corr of weekly returns with SPY|")
+def alpha_136(p: dict) -> pd.DataFrame:
+    ix = p.get("index")
+    spy_ret = ix["SPY"].pct_change() if (ix is not None and "SPY" in ix.columns) else None
+    return _corr_with_spy(p["close"], 26, 9, spy_ret)
+
+
+@register_alpha(id=137, group="andy", required=["close", "index"],
+                desc="ext_corrspy_neg_52w: negative |52w rolling corr of weekly returns with SPY|")
+def alpha_137(p: dict) -> pd.DataFrame:
+    ix = p.get("index")
+    spy_ret = ix["SPY"].pct_change() if (ix is not None and "SPY" in ix.columns) else None
+    return _corr_with_spy(p["close"], 52, 17, spy_ret)

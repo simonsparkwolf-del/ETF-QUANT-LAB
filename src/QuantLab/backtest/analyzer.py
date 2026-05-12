@@ -573,7 +573,7 @@ class BacktestAnalyzer:
 
             # Keep chart readable: top contributors + OTHER.
             mean_abs = (long_by_ticker.abs().mean() + short_by_ticker.abs().mean()).sort_values(ascending=False)
-            top_tickers = mean_abs.index.tolist()[:8]
+            top_tickers = mean_abs.index.tolist()[:20]
             other_tickers = [t for t in all_tickers if t not in top_tickers]
             display_tickers = top_tickers + (["OTHER"] if other_tickers else [])
 
@@ -824,7 +824,7 @@ class BacktestAnalyzer:
                 panel_long = panel_long.reindex(columns=all_tickers_panel, fill_value=0.0)
                 panel_short = panel_short.reindex(columns=all_tickers_panel, fill_value=0.0)
                 mean_abs = (panel_long.abs().mean() + panel_short.abs().mean()).sort_values(ascending=False)
-                top_tickers = mean_abs.index.tolist()[:8]
+                top_tickers = mean_abs.index.tolist()[:20]
                 other_tickers = [t for t in all_tickers_panel if t not in top_tickers]
                 display_tickers = top_tickers + (["OTHER"] if other_tickers else [])
                 panel_long_display = panel_long.loc[:, top_tickers].copy()

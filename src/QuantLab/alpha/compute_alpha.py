@@ -47,7 +47,7 @@ def save_alpha_results(
         stacked.name = aid
         all_dfs.append(stacked)
 
-    combined = pd.concat(all_dfs, axis=1)
+    combined = pd.concat(all_dfs, axis=1).copy()
     combined.index.names = ["date", "ticker"]
 
     # Long format: (date, ticker, alpha_id, value) — drop NaN rows

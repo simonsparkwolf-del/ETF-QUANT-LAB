@@ -24,6 +24,13 @@ TICKERS: list[str] = [
     "XLK", "XLP", "XLU", "XLV", "XLRE", "XLY",
 ]
 
+# Macro tickers needed by mac-group alphas (102-107)
+_MACRO_CLOSE_COLS: dict[str, str] = {
+    "SPY":      "SPY US Equity PX_LAST",
+    "VIX":      "VIX Index PX_LAST",
+    "USGG10YR": "USGG10YR Index PX_LAST",
+}
+
 _FIELD_SUFFIX: dict[str, str] = {
     "close":  "PX_LAST",
     "open":   "PX_OPEN",
@@ -95,6 +102,16 @@ def load_panel(csv_path: str | Path) -> dict[str, pd.DataFrame]:
     panel["returns"] = panel["close"].pct_change()
     panel["vwap"]    = (panel["open"] + panel["high"] + panel["low"] + panel["close"]) / 4.0
     panel["dv"]      = panel["close"] * panel["volume"]
+
+    # Index close for mac-group alphas (102-107): SPY / VIX / USGG10YR
+    index_close = {
+        ticker: pd.to_numeric(df[col], errors="coerce")
+        for ticker, col in _MACRO_CLOSE_COLS.items()
+        if col in df.columns
+    }
+    if index_close:
+        panel["index"] = pd.DataFrame(index_close, index=df.index)
+
     return panel
 
 

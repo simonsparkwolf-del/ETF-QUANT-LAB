@@ -197,7 +197,7 @@ class Account:
             assert isinstance(target, Security), "Target must be a Security"
             if trade.side == "buy" and trade_flag:
                 if self.cash < (trade.price * trade.volume + trade.fee):
-                    print("cash is not enougt trade is not executed")
+                    print("cash is not enough trade is not executed")
                     return
                 self.cash -= (trade.price * trade.volume + trade.fee)
                 self.long_fee_cum += trade.fee
@@ -221,7 +221,7 @@ class Account:
                     self.liabilities[ticker] += target
             elif trade.side == "buy":
                 if self.cash < (trade.price * trade.volume + trade.fee):
-                    print("cash is not enougt you are bankrupt and in debt")
+                    print("cash is not enough you are bankrupt and in debt")
                 self.cash -= (trade.price * trade.volume + trade.fee)
                 self.short_fee_cum += trade.fee
                 assert ticker in self.liabilities, "Liability must be in the account"

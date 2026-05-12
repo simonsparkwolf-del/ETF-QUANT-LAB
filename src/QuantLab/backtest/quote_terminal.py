@@ -58,7 +58,9 @@ class QuoteTerminal:
 
         q_a = """
         SELECT wa.date, wa.ticker, wa.alpha_id, wa.value FROM weekly_alpha wa
-        WHERE wa.alpha_id IN (SELECT alpha_id FROM alpha WHERE applicable = 'A')
+        WHERE wa.alpha_id IN (
+            SELECT alpha_id FROM alpha WHERE applicable IN ('A', 'andy')
+        )
         """
         alpha = pd.read_sql_query(q_a, self._conn)
         alpha["date"] = _dates(alpha["date"])
@@ -89,7 +91,7 @@ class QuoteTerminal:
             "SELECT date, ticker, signal_id, value FROM weekly_signal", self._conn
         )
         long_df["date"] = _dates(long_df["date"])
-        long_df = long_df.loc[long_df["date"] <= d, :]
+        long_df = long_df.loc[long_df["date"] == d, :]
         if long_df.empty:
             return pd.DataFrame(columns=["date", "ticker"])
         w = long_df.pivot_table(
