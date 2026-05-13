@@ -206,9 +206,14 @@ class Account:
                 else:
                     self.securities[ticker] += target
             elif trade.side == "sell":
+                
+                # if ticker not in self.securities:
+                #     print("warning: selling security not in stock")
+                #     return
+            
+                assert ticker in self.securities, "Security must be in the account"
                 self.cash += trade.price * trade.volume - trade.fee
                 self.long_fee_cum += trade.fee
-                assert ticker in self.securities, "Security must be in the account"
                 self.securities[ticker] -= target
         elif trade.direction == "short":
             assert isinstance(target, Liability), "Target must be a Liability"
@@ -222,9 +227,13 @@ class Account:
             elif trade.side == "buy":
                 if self.cash < (trade.price * trade.volume + trade.fee):
                     print("cash is not enough you are bankrupt and in debt")
+                
+                # if ticker not in self.securities:
+                #     print("warning: Liability not in stock")
+                #     return
+                assert ticker in self.liabilities, "Liability must be in the account"
                 self.cash -= (trade.price * trade.volume + trade.fee)
                 self.short_fee_cum += trade.fee
-                assert ticker in self.liabilities, "Liability must be in the account"
                 self.liabilities[ticker] -= target
         self._clean_up()
     

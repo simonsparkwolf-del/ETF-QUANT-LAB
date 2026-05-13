@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from collections import OrderedDict
+from typing import Literal
 
 from QuantLab.backtest.schema.backtest import Action
 from QuantLab.backtest.strategy.basic import Strategy
@@ -29,13 +30,10 @@ def _sell_cash_credit(
     long_cost: float,
     base_slippage: float,
 ) -> float:
-    """Cash delta from one long sell, matching ``Trade`` + ``Account.on_trade``."""
     px = float(action_px)
     vol = float(volume)
-    slip = float(base_slippage)
-    lc = float(long_cost)
-    exec_px = px - slip
-    fee = lc * px * vol
+    exec_px = px - float(base_slippage)
+    fee = float(long_cost) * px * vol
     return exec_px * vol - fee
 
 
@@ -46,13 +44,10 @@ def _buy_cash_out(
     long_cost: float,
     base_slippage: float,
 ) -> float:
-    """Cash delta (positive = outflow) for one long buy, matching ``Trade`` + ``Account``."""
     px = float(action_px)
     vol = float(volume)
-    slip = float(base_slippage)
-    lc = float(long_cost)
-    exec_px = px + slip
-    fee = lc * px * vol
+    exec_px = px + float(base_slippage)
+    fee = float(long_cost) * px * vol
     return exec_px * vol + fee
 
 
@@ -63,16 +58,11 @@ def _buy_volume_for_dollars(
     long_cost: float,
     base_slippage: float,
 ) -> float:
-    """Volume so that ``_buy_cash_out(px, vol, ...) == dollars`` (when friction linear in vol)."""
     px = float(action_px)
     if px <= 0.0 or dollars <= 0.0:
         return 0.0
-    slip = float(base_slippage)
-    lc = float(long_cost)
-    per_unit = (px + slip) + lc * px
-    if per_unit <= 0.0:
-        return 0.0
-    return dollars / per_unit
+    per_unit = (px + float(base_slippage)) + float(long_cost) * px
+    return dollars / per_unit if per_unit > 0.0 else 0.0
 
 
 def _max_buy_volume_for_cash(
@@ -82,40 +72,35 @@ def _max_buy_volume_for_cash(
     long_cost: float,
     base_slippage: float,
 ) -> float:
-    """Largest ``vol >= 0`` with ``_buy_cash_out(px, vol, ...) <= cash`` (same linear model as ``Account``)."""
     px = float(action_px)
     c = max(0.0, float(cash) - _CASH_FUDGE)
     if px <= 0.0 or c <= 0.0:
         return 0.0
-    slip = float(base_slippage)
-    lc = float(long_cost)
-    per_unit = (px + slip) + lc * px
-    if per_unit <= 0.0:
-        return 0.0
-    return c / per_unit
+    per_unit = (px + float(base_slippage)) + float(long_cost) * px
+    return c / per_unit if per_unit > 0.0 else 0.0
 
 
 class SiganlOptimizationStrategy(Strategy):
     """
-    Long-only: **all long sells first**, then softmax-weight **buys**.
+    Long-only or short-only softmax-weighted strategy.
 
-    Buy notionals are sized off **cash projected after all sells**, using the same
-    price / fee / slippage rules as ``Trader`` → ``Trade`` → ``Account.on_trade``.
-    Pass ``long_cost`` and ``base_slippage`` **identical** to ``BacktestConfig`` so
-    the batch never asks ``Account`` for more cash than will exist after sells.
+    mode="long":  flatten all longs → re-buy with softmax(scores).
+    mode="short": flatten all shorts → re-short with softmax(-scores).
 
-    Sell / buy **action prices** use the bar **close** from ``terminal.quote`` when
-    available (same as typical marks), so sell and reload use one price source.
+    Long sizing mirrors projected cash after sells.
+    Short sizing uses current NAV as total notional.
     """
 
     def __init__(
         self,
         name: str,
         *,
+        mode: Literal["long", "short"] = "long",
         long_cost: float = 0.0,
         base_slippage: float = 0.0,
     ) -> None:
         super().__init__(name)
+        self.mode = mode
         self.long_cost = float(long_cost)
         self.base_slippage = float(base_slippage)
 
@@ -127,22 +112,17 @@ class SiganlOptimizationStrategy(Strategy):
         px = float(q.loc["close"])
         return px if px > 0.0 else float(fallback)
 
-    def on_ranking(self, ranking: OrderedDict[str, float]) -> list[Action]:
+    # ── long ───────────────────────────────────────────────────────────────
+
+    def _on_ranking_long(self, ranking: OrderedDict[str, float]) -> list[Action]:
         assert self.terminal is not None and self.account is not None
         account = self.account
         day = self.terminal.day
         lc, slip = self.long_cost, self.base_slippage
 
-        tickers: list[str] = []
-        scores: list[float] = []
-        prices: list[float] = []
-
+        tickers, scores, prices = [], [], []
         for ticker, score in ranking.items():
-            fb = (
-                float(account.securities[ticker].market_price)
-                if ticker in account.securities
-                else 0.0
-            )
+            fb = float(account.securities[ticker].market_price) if ticker in account.securities else 0.0
             px = self._quote_close(ticker, fallback=fb)
             if px <= 0.0:
                 continue
@@ -150,7 +130,6 @@ class SiganlOptimizationStrategy(Strategy):
             scores.append(float(score))
             prices.append(px)
 
-        # 1) Flatten: sells use same close as signal / buy leg.
         sells: list[Action] = []
         deployable = float(account.cash)
         for ticker, sec in list(account.securities.items()):
@@ -160,66 +139,95 @@ class SiganlOptimizationStrategy(Strategy):
             if px <= 0.0:
                 continue
             vol = float(sec.volume)
-            sells.append(
-                Action(
-                    direction="long",
-                    side="sell",
-                    ticker=ticker,
-                    price=px,
-                    volume=vol,
-                    date=day,
-                )
-            )
+            sells.append(Action(direction="long", side="sell",
+                                ticker=ticker, price=px, volume=vol, date=day))
             deployable += _sell_cash_credit(px, vol, long_cost=lc, base_slippage=slip)
 
         self.remaining_amount = max(deployable, 0.0)
 
-        if not tickers:
-            return sells
-
-        if deployable <= 0.0:
+        if not tickers or deployable <= 0.0:
             return sells
 
         weights = _stable_softmax(scores)
-        n = len(tickers)
-
-        # 2) Buys: softmax slice of ``deployable``, then cap each leg so running cash
-        #    never exceeds what ``Account.on_trade`` would allow (forward simulation).
         buys: list[Action] = []
         cash_run = deployable
         remaining_slice = deployable
+        n = len(tickers)
         for i in range(n):
             t, w, px = tickers[i], weights[i], prices[i]
             if px <= 0.0:
                 continue
-            if i < n - 1:
-                dollars = deployable * w
-            else:
-                dollars = max(0.0, remaining_slice)
-            want = _buy_volume_for_dollars(
-                dollars, px, long_cost=lc, base_slippage=slip
-            )
-            cap = _max_buy_volume_for_cash(
-                px, cash_run, long_cost=lc, base_slippage=slip
-            )
-            vol = min(want, cap)
+            dollars = deployable * w if i < n - 1 else max(0.0, remaining_slice)
+            want = _buy_volume_for_dollars(dollars, px, long_cost=lc, base_slippage=slip)
+            cap  = _max_buy_volume_for_cash(px, cash_run, long_cost=lc, base_slippage=slip)
+            vol  = min(want, cap)
             if vol > 0.0:
-                out = _buy_cash_out(px, vol, long_cost=lc, base_slippage=slip)
-                buys.append(
-                    Action(
-                        direction="long",
-                        side="buy",
-                        ticker=t,
-                        price=px,
-                        volume=vol,
-                        date=day,
-                    )
-                )
-                cash_run -= out
+                buys.append(Action(direction="long", side="buy",
+                                   ticker=t, price=px, volume=vol, date=day))
+                cash_run -= _buy_cash_out(px, vol, long_cost=lc, base_slippage=slip)
             if i < n - 1:
                 remaining_slice -= deployable * w
 
         return sells + buys
+
+    # ── short ──────────────────────────────────────────────────────────────
+
+    def _on_ranking_short(self, ranking: OrderedDict[str, float]) -> list[Action]:
+        assert self.terminal is not None and self.account is not None
+        account = self.account
+        day = self.terminal.day
+
+        tickers, scores, prices = [], [], []
+        for ticker, score in ranking.items():
+            fb = float(account.liabilities[ticker].market_price) if ticker in account.liabilities else 0.0
+            px = self._quote_close(ticker, fallback=fb)
+            if px <= 0.0:
+                continue
+            tickers.append(ticker)
+            scores.append(float(score))
+            prices.append(px)
+
+        covers: list[Action] = []
+        for ticker, liab in list(account.liabilities.items()):
+            if liab.volume <= 0.0:
+                continue
+            px = self._quote_close(ticker, fallback=float(liab.market_price))
+            if px <= 0.0:
+                continue
+            covers.append(Action(
+                direction="short", side="buy",
+                ticker=ticker, price=px, volume=float(liab.volume), date=day,
+                short_start_date=liab.start_date,
+                short_value=float(liab.volume * liab.price),
+            ))
+
+        if not tickers:
+            return covers
+
+        # softmax(-score): higher weight → lower-ranked (worse) ETFs
+        weights = _stable_softmax([-s for s in scores])
+        deployable = float(account.total_value)
+
+        shorts: list[Action] = []
+        for t, w, px in zip(tickers, weights, prices):
+            notional = deployable * w
+            vol = notional / px
+            if vol > 0.0:
+                shorts.append(Action(
+                    direction="short", side="sell",
+                    ticker=t, price=px, volume=vol, date=day,
+                    short_start_date=day,
+                    short_value=notional,
+                ))
+
+        return covers + shorts
+
+    # ── Strategy interface ─────────────────────────────────────────────────
+
+    def on_ranking(self, ranking: OrderedDict[str, float]) -> list[Action]:
+        if self.mode == "short":
+            return self._on_ranking_short(ranking)
+        return self._on_ranking_long(ranking)
 
     def on_holding(self) -> list[Action]:
         return []

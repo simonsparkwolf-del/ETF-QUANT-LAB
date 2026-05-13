@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 class DebugSignal(Signal):
     def analyze(self) -> OrderedDict[str, float]:
         assert self.terminal is not None
-        t = self.terminal.today_etfs()
+        t = self.terminal.etfs()
         tickers = t["ticker"].unique().tolist()
         random.shuffle(tickers)
         ranking: OrderedDict[str, float] = OrderedDict()
