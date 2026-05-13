@@ -42,3 +42,4 @@ Whenever run your code, remember only in venv.
 3. May 3rd - Structured database.
 4. May 8th - ML signal source pilot test.
 5. May 9th - Back test engine is ready.
+6. May 11st - Datainfra and backtest engine are completed.

@@ -1,6 +1,5 @@
 # ML based architecture
 
-author: Simon
 
 ### A.The reason ML is introduced
 
@@ -9,21 +8,21 @@ author: Simon
 - No need to waste too much time on thinking how to compose new reasonable indexes.
 - Don't have to try every combination of the indexes manually with a lot of scripts and lines of code.
 
-1. It looks fancy to Sophiane and it's out of his knowledge scope.
+2. It looks fancy to Sophiane and it's out of his knowledge scope.
 
 - ML is the cutting edge topic in the field.
 - ML is black box, instead of economic rationale, we focus on the performance.
 
-1. It really learns something from the training dataset.
+3. It really learns something from the training dataset.
 
 - Unsupervised method like baseline learns nothing from training dataset, which makes out-sample results outruns in-sample results.
 - Unsupervised method like baseline needs a lot of tries to optimize the entire parameters to get a reasonable and sub-optimal outcome.
 
-1. The project is more structured and easy to manage.
+4. The project is more structured and easy to manage.
 
 - We only need to iterate the weights and models to drive our strategy.
 
-1. **Less code work**
+5. **Less code work**
 
 - Compared to baseline model's heavy code. Several lines of code can train a powerful model.
 
@@ -71,9 +70,15 @@ flowchart TB
 
 ```mermaid
 flowchart LR
+<<<<<<< HEAD:docs/03 Architecture.md
     A[Traditional Quant Signals: Cumulative Return, Sharpe ratio] --> B[A certain algorithm]
     C[Multiple ML model signals: predict performance from various alphas / bars] --> B
     B -->|compose| D[Ranking score for weekly ranking]
+=======
+    A[Traditional Quant Signals: Cumulative Return, Sharp Ratio] --> B[A certain algorithm]
+    C[Multiple ML Model Siganls: Predict the Performance of the model from various alphas bars] --> B
+    B -->|compose| D[WSI for weekly ranking]
+>>>>>>> 750a761cac4dc4fbaa8356407738998c487f10f3:docs/03 ML architecture.md
 ```
 
 #### 3. FRS - Future Return Score (Traget Value for ML model)

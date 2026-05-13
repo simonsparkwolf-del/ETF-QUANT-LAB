@@ -39,17 +39,14 @@ author: Simon
 
 ```mermaid
 flowchart TB
-    A[Data Pool: Bars + Alpha Pool + Additional Data] --> B[ML model module]
-    B --> C[WIS - Worth Investing Scores]
-    A --> F[Traditional Quant Signals]
-    F --> C
-    C -->|Rank the ETF and Analyzed by| D[Trading module]
+    A[Data Pool: Bars + Alpha Pool + Additional Data] --> B(ML model module)
+    B --> |Generates score| C[WIS - Worth Investing Scores]
+    B --- |Trained by| G[FRS - Future Return Score]
+    A --> F(Traditional Quant Signals Module)
+    F --> |Generates score| C
+    C --> |rank| R[ETF Ranking]
+    R --> |analyzed by| D(Trading module)
     D -->|Trades in| E[Back Test Engine]
-    A ---|Built by| Group1[Data + Infra Team]
-    E ---|Built by| Group1
-    B ---|Iterated and finetuned by| Group2[Model Dev Team]
-    C ---|The criteria of ranking and the relevant mechanism is managed by| Group1
-    D ---|Upgrade and adjusted by| Group3[Trade Control Team]
 ```
 
 
@@ -72,8 +69,8 @@ flowchart TB
 ```mermaid
 flowchart LR
     A[Traditional Quant Signals: Cumulative Return, Sharp Ratio] --> B[A certain algorithm]
-    C[Multiple ML Model Siganls: Predict the Performance of the model from various alphas|bars] --> B
-    B -->|compose| D[WSI for weekly ranking]
+    C[Multiple ML Model Siganls: Predict the Performance of the model from various alphas, bars etc.] --> B
+    B -->|compose| D[WIS for weekly ranking]
 ```
 
 #### 3. FRS - Future Return Score (Traget Value for ML model)
