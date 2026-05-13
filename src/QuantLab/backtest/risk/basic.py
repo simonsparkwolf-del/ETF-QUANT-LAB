@@ -26,6 +26,9 @@ class Risk(ABC):
     def bind(self, terminal: QuoteTerminal) -> None:
         self.terminal = terminal
 
+    def load_account(self, account) -> None:
+        pass
+
     def act(self, actions: list[Action]) -> tuple[list[Action], list[RiskAction]]:
         """
         Engine entrypoint.

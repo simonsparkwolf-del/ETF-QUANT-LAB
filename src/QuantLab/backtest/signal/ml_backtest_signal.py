@@ -49,7 +49,7 @@ class MLBacktestSignal(Signal):
     def analyze(self) -> OrderedDict[str, float]:
         assert self.terminal is not None 
         today = self.terminal.day
-        etfs = self.terminal.today_etfs()
+        etfs = self.terminal.etfs()
         signal_name = f"signal_{self._signal_id}"
         signals = self.terminal.signals()
         signals = signals[["ticker",signal_name ]]

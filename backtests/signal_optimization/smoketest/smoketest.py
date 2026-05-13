@@ -12,9 +12,13 @@ from QuantLab.backtest.engine import BacktestEngine
 from QuantLab.backtest.risk.debug import DebugRisk
 from QuantLab.backtest.schema.backtest import Account
 from QuantLab.backtest.schema.backtest_config import BacktestConfig
+from typing import Literal
+
 from QuantLab.backtest.signal.optimization_test import OptimizationTestSignal
 from QuantLab.backtest.strategy.signal_optimization import SiganlOptimizationStrategy
 from QuantLab.utils.config import load_pathes
+
+MODE: Literal["long", "short"] = "long"
 
 
 def main() -> None:
@@ -28,6 +32,7 @@ def main() -> None:
     base_slippage = 0.0
     strategy = SiganlOptimizationStrategy(
         "signal_optimization",
+        mode=MODE,
         long_cost=long_cost,
         base_slippage=base_slippage,
     )
@@ -45,15 +50,14 @@ def main() -> None:
         long_cost=long_cost,
         short_cost_per_day=0.0,
         base_slippage=base_slippage,
-        long_enabled=True,
-        short_enabled=False,
+        long_enabled=(MODE == "long"),
+        short_enabled=(MODE == "short"),
         save_eval_artifacts=True,
     )
     engine = BacktestEngine(config)
     engine.run()
     metrics = engine.evaluate()
     print(metrics)
-
 
 if __name__ == "__main__":
     main()

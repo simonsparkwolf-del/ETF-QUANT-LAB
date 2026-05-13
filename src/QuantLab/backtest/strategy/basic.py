@@ -23,10 +23,13 @@ class Strategy(ABC):
         self.name = name
         self.terminal: QuoteTerminal | None = None
         self.account: Account | None = None
-        # How much notional (cash amount) the strategy can still deploy today.
+        # How much cash the strategy can still spend today (after fees & slippage).
         self.remaining_amount: float = 0.0
         # Max absolute position weight per ticker (fraction of NAV). Risk can tighten this.
         self.max_weight: float = 1.0
+        # Injected by engine from BacktestConfig so budget accounting is accurate.
+        self.long_cost: float = 0.0
+        self.base_slippage: float = 0.0
 
     def bind(self, terminal: QuoteTerminal) -> None:
         self.terminal = terminal
@@ -108,9 +111,12 @@ class Strategy(ABC):
         # 2) Force close positions (EndTrade).
         if end_trade:
             d = self.terminal.day
+            # Skip tickers already covered by strategy-generated exits in step 1.
+            already_selling  = {a.ticker for a in out if a.direction == "long"  and a.side == "sell"}
+            already_covering = {a.ticker for a in out if a.direction == "short" and a.side == "buy"}
             # Close longs.
             for ticker, sec in self.account.securities.items():
-                if sec.volume > 0:
+                if sec.volume > 0 and ticker not in already_selling:
                     out.append(
                         Action(
                             direction="long",
@@ -123,7 +129,7 @@ class Strategy(ABC):
                     )
             # Close shorts.
             for ticker, liab in self.account.liabilities.items():
-                if liab.volume > 0:
+                if liab.volume > 0 and ticker not in already_covering:
                     out.append(
                         Action(
                             direction="short",
@@ -184,9 +190,13 @@ class Strategy(ABC):
 
             allowed_add = target_exp - cur_exp
 
-            # Apply remaining_amount for long buys (simple notional budget).
+            # Apply remaining_amount for long buys.
+            # Actual cash cost per share = (px + slippage) + fee_rate * px
+            #                            = px * (1 + long_cost) + base_slippage
+            # Convert cash budget to notional budget before capping.
             if is_open_long:
-                allowed_add = min(allowed_add, float(self.remaining_amount))
+                cost_per_notional = (px * (1 + self.long_cost) + self.base_slippage) / px
+                allowed_add = min(allowed_add, float(self.remaining_amount) / cost_per_notional)
 
             # If allowed_add doesn't increase exposure in the intended direction, skip.
             if is_open_long and allowed_add <= 0:
@@ -201,7 +211,8 @@ class Strategy(ABC):
 
             # Update budgets/exposures.
             if is_open_long:
-                self.remaining_amount -= float(new_vol) * px
+                # Deduct actual cash cost (price + slippage + fee) not just notional.
+                self.remaining_amount -= float(new_vol) * (px * (1 + self.long_cost) + self.base_slippage)
             cur[a.ticker] = cur_exp + (new_vol * px * (1.0 if is_open_long else -1.0))
 
             out.append(

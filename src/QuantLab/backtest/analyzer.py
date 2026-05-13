@@ -255,24 +255,26 @@ class BacktestAnalyzer:
 
         # --- SPY comparison + CAPM alpha (annualized) ---
         if terminal is not None:
-            spy_bars = terminal.benchmarks()
+            _start = value_history["date"].min().date()
+            _end   = value_history["date"].max().date()
+            spy_bars = terminal.benchmark_history(_start, _end)
             if not spy_bars.empty:
                 spy = spy_bars.copy()
                 spy["date"] = pd.to_datetime(spy["date"])
                 spy = spy.loc[spy["ticker"] == "SPY", ["date", "close"]].sort_values("date")
                 if not spy.empty:
                     equity = value_history.sort_values("date").set_index("date")["total_value"].astype(float)
-                    nav = equity / float(equity.iloc[0])
-
                     spy_close = spy.set_index("date")["close"].astype(float)
-                    spy_nav = spy_close / float(spy_close.iloc[0])
 
-                    # Align on common dates
+                    # Align first, then normalize so both start at 1.0 on the first common date
                     aligned = pd.concat(
-                        [nav.rename("nav"), spy_nav.rename("spy")],
+                        [equity.rename("nav"), spy_close.rename("spy")],
                         axis=1,
                         join="inner",
                     ).dropna()
+                    if not aligned.empty:
+                        aligned["nav"] = aligned["nav"] / float(aligned["nav"].iloc[0])
+                        aligned["spy"] = aligned["spy"] / float(aligned["spy"].iloc[0])
 
                     if len(aligned) >= 3:
                         r_p = aligned["nav"].pct_change().dropna()
@@ -634,7 +636,9 @@ class BacktestAnalyzer:
         # 1) NAV vs SPY
         ax_spy = axes_panel[0]
         if terminal is not None:
-            spy_bars = terminal.benchmarks()
+            _panel_start = value_history["date"].min().date()
+            _panel_end   = value_history["date"].max().date()
+            spy_bars = terminal.benchmark_history(_panel_start, _panel_end)
         else:
             spy_bars = pd.DataFrame()
         if not spy_bars.empty:
@@ -642,15 +646,17 @@ class BacktestAnalyzer:
             spy["date"] = pd.to_datetime(spy["date"])
             spy = spy.loc[spy["ticker"] == "SPY", ["date", "close"]].sort_values("date")
             if not spy.empty:
-                nav = (
+                port_equity = (
                     value_history.sort_values("date")
                     .set_index("date")["total_value"]
                     .astype(float)
                 )
-                nav = nav / float(nav.iloc[0])
                 spy_close = spy.set_index("date")["close"].astype(float)
-                spy_nav = spy_close / float(spy_close.iloc[0])
-                aligned = pd.concat([nav.rename("nav"), spy_nav.rename("spy")], axis=1, join="inner").dropna()
+                # Align first, then normalize so both start at 1.0 on the first common date
+                aligned = pd.concat([port_equity.rename("nav"), spy_close.rename("spy")], axis=1, join="inner").dropna()
+                if not aligned.empty:
+                    aligned["nav"] = aligned["nav"] / float(aligned["nav"].iloc[0])
+                    aligned["spy"] = aligned["spy"] / float(aligned["spy"].iloc[0])
             else:
                 aligned = pd.DataFrame()
         else:
