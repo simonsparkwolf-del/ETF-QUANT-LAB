@@ -9,8 +9,8 @@
 
 ## 1. Motivation
 
-Step 1 OOS LP screening identified five alpha candidates with LP Δ vs EW > 0.29.
-Each individually beats the equal-weight baseline, but a **linear blend** may capture
+Step 1 IS LP screening identified the top five alpha candidates by IS LP Sharpe.
+Each individually beats the equal-weight baseline on IS, but a **linear blend** may capture
 complementary cross-sectional information and produce a more stable composite score.
 
 Step 2 goal: find weights $w_k \geq 0$, $\sum_k w_k = 1$ such that
@@ -23,17 +23,16 @@ maximises the LP Sharpe on a held-out validation window, verified on OOS.
 
 ## 2. Candidate Pool
 
-Five alphas selected from Step 1 OOS LP ranking (see `00_step1_screening.md`).
-#24 is included here despite being L-only in the L/S framework — in LP-only
-optimisation there is no SP constraint.
+Five alphas selected from Step 1 **IS LP ranking** (see `00_step1_screening.md`).
+IS ranking is the selection criterion — OOS is a held-out result, never used to select candidates.
 
-| Alpha | OOS LP Sharpe | OOS LP Δ vs EW | L/S status |
-|-------|:-------------:|:--------------:|:----------:|
-| #57 | 2.174 | +0.637 | ✓ L/S |
-| #24 | 2.055 | +0.518 | L only |
-| #19 | 2.014 | +0.477 | ✓ L/S |
-| #31 | 1.854 | +0.317 | ✓ L/S |
-| #23 | 1.829 | +0.292 | ✓ L/S |
+| Alpha | IS LP Sharpe | IS LP Δ vs EW | L/S status (IS SP) |
+|-------|:------------:|:-------------:|:------------------:|
+| #24 | 1.122 | +0.432 | IS SP best (−0.420) |
+| #66 | 0.744 | +0.054 | IS SP −0.630 |
+| #101 | 0.732 | +0.042 | IS SP −0.638 |
+| #64 | 0.726 | +0.036 | IS SP −0.668 |
+| #136 | 0.709 | +0.019 | IS SP −0.675 |
 
 Equal-weight blend baseline (all $w_k = 0.2$) is included as the null hypothesis
 for the optimised weights.
@@ -116,12 +115,12 @@ the equal-weight blend is preferred instead.
 | Reference | LP Sharpe (IS-val window) | LP Sharpe (OOS) |
 |-----------|:-------------------------:|:---------------:|
 | Equal-weight ETFs (Step 0) | TBD | 1.537 |
-| Best single alpha — #57 (Step 1) | TBD | 2.174 |
+| Best single alpha IS — #24 (Step 1) | TBD | TBD |
 | Equal-weight blend (all $w_k=0.2$) | TBD | TBD |
 | **Optimised blend (Step 2)** | TBD | TBD |
 
-The optimised blend must beat **both** Step 0 (EW ETFs) and Step 1 (#57 single)
-on OOS LP Sharpe to be considered a genuine improvement.
+The optimised blend must beat **both** Step 0 (EW ETFs) and Step 1 (#24 single, IS best)
+on IS-val LP Sharpe to be considered a genuine improvement.
 
 ---
 
@@ -138,7 +137,7 @@ backtests/signal_optimization/01 blend/long power/outputs/
   best_weights.json      — {alpha_id: weight} for the best trial
   summary.json           — IS-train / IS-val / OOS metrics for key configs
   best_blend/            — full artifacts for the optimised blend (OOS window)
-  single_alpha_57/       — reference run: single #57 on OOS (comparison)
+  single_alpha_24/       — reference run: single #24 (IS best) on OOS (comparison)
   equal_weight_blend/    — reference run: equal-weight blend on OOS
 ```
 
@@ -150,33 +149,33 @@ backtests/signal_optimization/01 blend/long power/outputs/
 
 | Alpha | Weight | Note |
 |-------|:------:|------|
-| #24 | 61.01% | Dominant contributor; L-only in Step 1 (no SP constraint here) |
-| #19 | 30.38% | Second significant contributor |
-| #23 | 7.31% | Minor weight |
-| #31 | 0.96% | Near-zero — effectively excluded |
-| #57 | 0.34% | Near-zero — Step 1 best single signal nearly dropped |
+| #24 | **55.07%** | IS LP best; dominant contributor |
+| #66 | **29.76%** | IS LP #2; strong second contributor |
+| #101 | 7.98% | Minor contribution |
+| #136 | 7.12% | Minor contribution |
+| #64 | 0.08% | Near-zero — effectively excluded |
 
-The optimiser concentrates weight on #24 and #19, essentially ignoring #57 and #31.
-This is structurally coherent: without an SP constraint, #24 (L-only in Step 1) is
-free to contribute, and it carries information orthogonal to #57.
+Optimiser concentrates weight on IS LP top-2 (#24 + #66 = 84.8%). The bottom three candidates contribute little.
 
 ### 7.2 Performance Summary
 
 | Configuration | IS-train Sharpe | IS-val Sharpe | OOS Sharpe | OOS Ann. Return | OOS Vol | OOS Max DD |
 |---------------|:---------------:|:-------------:|:----------:|:---------------:|:-------:|:----------:|
 | EW ETFs (Step 0) | — | — | 1.537 | — | — | — |
-| Single #57 (Step 1) | — | 1.268 | 2.108 | 28.71% | 12.36% | −10.24% |
-| EW blend (all 0.2) | — | 1.841 | 2.062 | 23.17% | 10.38% | −9.46% |
-| **Optimised blend** | **0.936** | **2.069** | **2.130** | **27.27%** | **11.66%** | **−9.11%** |
+| **Single #24 (IS best) ★** | — | **2.176** | **1.935** | **27.19%** | **12.88%** | **−12.21%** |
+| EW blend (all 0.2) | — | 1.707 | 1.611 | 17.23% | 10.21% | −10.48% |
+| Optimised blend | 0.871 | 2.006 | 1.877 | 23.59% | 11.66% | −11.63% |
+
+> ★ **IS-selected configuration: Single #24** (IS-val 2.176 > blend 2.006 > EW 1.707).
 
 ### 7.3 Key Findings
 
-1. **Blend beats all baselines on OOS Sharpe.** Optimised blend (2.130) > single #57 (2.108) > EW blend (2.062) > EW ETFs (1.537). The improvement is modest (+0.022 vs single #57) but the blend also reduces max drawdown (−9.11% vs −10.24%).
+1. **Blend fails to beat single #24 on IS-val.** IS-val: single #24 (2.176) > optimised blend (2.006) > EW blend (1.707). IS-selection criterion favours single #24 — no blending improvement.
 
-2. **IS-train Sharpe (0.936) is materially lower than IS-val (2.069) and OOS (2.130).** The 2021–2023 window (COVID recovery + rate-hike cycle) was a structurally harder regime for these alphas. IS-val and OOS both fall in a calmer trending environment. No overfitting concern — generalisation is positive.
+2. **OOS consistent with IS selection.** Single #24 OOS (1.935) > blend (1.877) > EW blend (1.611). IS/OOS rank order preserved — no divergence on LP side with IS-correct pool.
 
-3. **#57 weight collapses to near-zero (0.34%).** Despite being the top single alpha on OOS LP Sharpe in Step 1, the Bayesian optimiser removes it. #24 (LP 2.055, excluded from L/S in Step 1) dominates at 61%. This suggests #24 and #19 carry complementary information during the IS-train regime that #57 does not.
+3. **Blend overfits IS-train.** IS-train Sharpe 0.871 vs IS-val 2.006 — large gap indicates the optimiser fits the 2021–2023 regime. Despite this, the blend still loses to single #24 on IS-val.
 
-4. **EW blend (2.062) marginally trails both the optimised blend and single #57.** Naïve averaging slightly dilutes the signal; the optimiser's concentration on two alphas is better than uniform weighting.
+4. **#64 effectively excluded (0.08%).** Despite being IS LP #4, the optimiser assigns near-zero weight. IS LP top-2 (#24, #66) capture most of the useful signal in this blend context.
 
-5. **Overfitting diagnostic passes.** IS-val (2.069) is not below IS-train (0.936) — the rule flags overfitting when IS-val degrades > 0.3 vs IS-train. Here the opposite is true: alphas generalise strongly beyond the training window.
+5. **Conclusion: single #24 is the IS-selected LP configuration.** Blending within the IS-correct pool does not improve over the IS-best single alpha. Simple IS-based selection dominates.

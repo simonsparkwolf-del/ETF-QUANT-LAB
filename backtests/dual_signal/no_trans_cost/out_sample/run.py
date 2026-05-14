@@ -12,9 +12,9 @@ Outputs:  backtests/dual_signal/no_trans_cost/out_sample/outputs/
   summary.json
   best_l{long_id}_s{short_id}/   (full artifacts for the top Sharpe pair)
 
-Candidate pools (from Step 1 OOS LP/SP screening):
-  LONG_ALPHAS  — top OOS LP performers with LP Δ vs EW > 0.29
-  SHORT_ALPHAS — top OOS SP performers with SP Δ vs EW > 0.40
+Candidate pools (from Step 1 IS LP/SP ranking):
+  LONG_ALPHAS  — top 4 IS LP performers
+  SHORT_ALPHAS — top 5 IS SP performers
 """
 
 from __future__ import annotations
@@ -35,12 +35,11 @@ START_DATE  = date(2025, 1, 1)
 END_DATE    = date(2026, 3, 1)
 INITIAL_NAV = 10_000.0
 
-# Top OOS LP alpha pool (OOS LP Δ vs EW > 0.29, from Step 1 screening).
-LONG_ALPHAS: tuple[int, ...] = (57, 19, 31, 23)
+# Top 4 IS LP alpha pool (by IS LP Sharpe: #24 1.122, #66 0.744, #101 0.732, #64 0.726).
+LONG_ALPHAS: tuple[int, ...] = (24, 66, 101, 64)
 
-# Top OOS SP alpha pool (OOS SP Δ vs EW > 0.40, from Step 1 screening).
-# #53 included despite LP < EW — valid as a pure short signal in SP slot.
-SHORT_ALPHAS: tuple[int, ...] = (23, 53, 31, 19, 57)
+# Top 5 IS SP alpha pool (by IS SP Sharpe: #24 -0.420, #57 -0.559, #19 -0.593, #51 -0.621, #66 -0.630).
+SHORT_ALPHAS: tuple[int, ...] = (24, 57, 19, 51, 66)
 
 
 def _pair_key(long_id: int, short_id: int) -> str:

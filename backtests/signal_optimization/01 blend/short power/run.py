@@ -2,7 +2,7 @@
 Step 2 — SP Signal Blend: Bayesian optimisation (Short Power).
 
 Searches for optimal linear weights over the Step 1 SP candidate pool
-{#23, #53, #31, #19, #57} to maximise SP Sharpe on the IS-train window,
+{#24, #57, #19, #51, #66} to maximise SP Sharpe on the IS-train window,
 then validates on IS-val and OOS.
 
 Windows
@@ -20,7 +20,7 @@ Method
 
 Reference baselines (run once, saved alongside optimised result)
 ----------------------------------------------------------------
-  single_alpha_23/   — best Step 1 single alpha on OOS SP
+  single_alpha_24/   — best Step 1 single alpha on IS SP
   equal_weight_blend/ — all weights = 0.2 (null hypothesis for blending)
 
 Outputs: backtests/signal_optimization/01 blend/short power/outputs/
@@ -28,7 +28,7 @@ Outputs: backtests/signal_optimization/01 blend/short power/outputs/
   best_weights.json
   summary.json
   best_blend/           full artifacts (OOS window)
-  single_alpha_23/      full artifacts (OOS window)
+  single_alpha_24/      full artifacts (OOS window)
   equal_weight_blend/   full artifacts (OOS window)
 """
 
@@ -63,9 +63,9 @@ OOS_END        = date(2026,  3,  1)
 
 INITIAL_NAV = 10_000.0
 
-# ── SP candidate pool (Step 1 OOS SP ranking) ─────────────────────────────────
-# #53 included: highest OOS SP Δ after #23; no LP constraint in SP-only optimisation.
-SP_CANDIDATES: tuple[int, ...] = (23, 53, 31, 19, 57)
+# ── SP candidate pool (Step 1 IS SP ranking) ──────────────────────────────────
+# Top 5 by IS SP Sharpe: #24 (-0.420), #57 (-0.559), #19 (-0.593), #51 (-0.621), #66 (-0.630)
+SP_CANDIDATES: tuple[int, ...] = (24, 57, 19, 51, 66)
 
 N_TRIALS = 150
 
@@ -180,7 +180,7 @@ def main() -> None:
     configs = {
         "best_blend":         AlphaBlendSignal(raw_best),
         "equal_weight_blend": AlphaBlendSignal({aid: 1.0 for aid in SP_CANDIDATES}),
-        "single_alpha_23":    AlphaBacktestSignal(23),
+        "single_alpha_24":    AlphaBacktestSignal(24),
     }
 
     # IS-train Sharpe for best_blend comes directly from the study — no re-run needed.
@@ -196,7 +196,7 @@ def main() -> None:
     summary: dict[str, dict] = {
         "best_blend": {"is_train_sharpe": study.best_value},
         "equal_weight_blend": {},
-        "single_alpha_23": {},
+        "single_alpha_24": {},
     }
     with tqdm(total=len(eval_runs), desc="Evaluating", unit="run") as pbar:
         for label, signal, window, start, end, save_arts in eval_runs:

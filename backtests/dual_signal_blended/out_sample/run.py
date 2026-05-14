@@ -45,21 +45,12 @@ START_DATE  = date(2025, 1, 1)
 END_DATE    = date(2026, 3, 1)
 INITIAL_NAV = 10_000.0
 
-# ── Step 2 optimised weights (normalised, from summary.json) ──────────────────
-LP_WEIGHTS: dict[int, float] = {
-    24: 0.6100894327526644,
-    19: 0.3037776311829589,
-    23: 0.0731297883647117,
-    31: 0.0096182787397714,
-    57: 0.0033848689598936,
-}
-SP_WEIGHTS: dict[int, float] = {
-    53: 0.3871103219614980,
-    57: 0.3752740941205884,
-    19: 0.2052617432838318,
-    31: 0.0237407586886256,
-    23: 0.0086130819454564,
-}
+# ── Step 2 optimised weights — TBD: re-run Step 2 with IS-correct candidate pools ──────────
+# Fill these after running:
+#   backtests/signal_optimization/01 blend/long power/run.py  → LP_WEIGHTS
+#   backtests/signal_optimization/01 blend/short power/run.py → SP_WEIGHTS
+LP_WEIGHTS: dict[int, float] = {}  # TODO: fill after re-running long power blend
+SP_WEIGHTS: dict[int, float] = {}  # TODO: fill after re-running short power blend
 
 # ── 2×2 ablation configs ─────────────────────────────────────────────────────
 CONFIGS: dict[str, tuple[dict[int, float], dict[int, float]]] = {

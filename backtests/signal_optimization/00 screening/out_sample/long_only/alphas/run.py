@@ -24,9 +24,10 @@ from QuantLab.backtest.signal.alpha_test import AlphaBacktestSignal
 from QuantLab.backtest.signal.optimization_test import OptimizationTestSignal
 
 ALPHA_IDS: tuple[int, ...] = (
-    6, 10, 14, 16, 18, 19, 20, 22, 23, 24, 26, 30, 31, 32, 34, 37, 40, 44,
-    51, 53, 54, 57, 61, 64, 66, 72, 83, 95, 101,
-    108, 110, 116, 118, 123, 125, 127, 128, 130, 135, 136,
+    # 6, 10, 14, 16, 18, 19, 20, 22, 23, 24, 26, 30, 31, 32, 34, 37, 40, 44,
+    # 51, 53, 54, 57, 61, 64, 66, 72, 83, 95, 101,
+    # 108, 110, 116, 118, 123, 125, 127, 128, 130, 135, 136,
+    24,
 )
 from typing import Literal
 
@@ -132,7 +133,7 @@ def main() -> None:
     paths = load_pathes()
     root = paths["ROOT"]
     db_path = root / "simon_test" / "datapool.db"
-    outputs = root / "backtests" / "signal_optimization"/"out_sample" / "long_only" /"alphas" / "outputs"
+    outputs = root / "backtests" / "signal_optimization"/"00 screening"/"out_sample" / "long_only" /"alphas" / "outputs"
     outputs.mkdir(parents=True, exist_ok=True)
 
     # ── Equal-weight baseline ─────────────────────────────────────────────

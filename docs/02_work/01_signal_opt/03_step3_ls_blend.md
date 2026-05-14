@@ -34,12 +34,12 @@ $$u^{\text{LP}}_k,\; u^{\text{SP}}_k \;\sim\; \text{Uniform}[0,\,1]$$
 $$w^{\text{LP}}_k = \frac{u^{\text{LP}}_k}{\sum_j u^{\text{LP}}_j}, \qquad
   w^{\text{SP}}_k = \frac{u^{\text{SP}}_k}{\sum_j u^{\text{SP}}_j}$$
 
-**Candidate pools (unchanged from Step 2):**
+**Candidate pools (IS-correct, from Step 1 IS ranking):**
 
 | Side | Pool |
 |------|------|
-| LP | #57, #24, #19, #31, #23 |
-| SP | #23, #53, #31, #19, #57 |
+| LP | #24, #66, #101, #64, #136 (top 5 IS LP Sharpe) |
+| SP | #24, #57, #19, #51, #66 (top 5 IS SP Sharpe) |
 
 ---
 
@@ -80,11 +80,11 @@ The backtest uses `DualSignalStrategy` + `BaselineRisk`, `long_enabled=True`,
 
 | Reference | IS-val Sharpe | OOS Sharpe |
 |-----------|:-------------:|:----------:|
-| `l57_s23` — Design 01/02 best | TBD | 2.190 |
+| `l24_s24` — IS-best single (LP=SP=#24) | TBD | TBD |
 | Equal-weight blend (all 1.0) | TBD | TBD |
 | **Jointly optimised L/S blend** | TBD | TBD |
 
-Target: OOS Sharpe > **2.190** (`l57_s23` from Design 02 ablation).
+Target: beat IS-selected `l24_s24` on IS-val Sharpe; OOS result reported as validation.
 
 ---
 
@@ -102,7 +102,7 @@ backtests/signal_optimization/02 ls_blend/outputs/
   summary.json
   best_ls_blend/       full artifacts (OOS window)
   equal_weight_blend/  full artifacts (OOS window)
-  l57_s23/             full artifacts (OOS window)
+  l24_s24/             full artifacts (OOS window) — IS-best baseline
 ```
 
 ---
@@ -111,42 +111,46 @@ backtests/signal_optimization/02 ls_blend/outputs/
 
 ### 8.1 Optimised Weights
 
-**LP side** — more balanced than Step 2 LP blend:
+**LP side** — lower IS LP ranks dominate:
 
-| Alpha | Weight | Note |
-|-------|:------:|------|
-| #24 | 28.65% | L-only in Step 1; joint opt assigns modest weight (vs 61% in Step 2) |
-| #57 | 28.39% | Step 1 best LP; recovers weight when optimised in L/S context |
-| #23 | 20.64% | Step 1 best SP; LP contribution acknowledged |
-| #31 | 17.64% | Strong all-round; significant LP weight |
-| #19 | 4.68% | Minor contributor |
+| Alpha | Weight | IS LP rank |
+|-------|:------:|:----------:|
+| #136 | **38.53%** | #5 |
+| #101 | **36.96%** | #3 |
+| #24 | 13.94% | #1 IS best |
+| #64 | 6.97% | #4 |
+| #66 | 3.61% | #2 |
 
-**SP side** — #31 emerges as dominant (invisible in Step 2 SP-only):
+**SP side** — #66 dominates (same pattern as Step 2 SP blend):
 
-| Alpha | Weight | Note |
-|-------|:------:|------|
-| #31 | 49.12% | Near-zero in Step 2 SP-only (2.37%); dominant in joint L/S context |
-| #23 | 32.76% | Step 1 best SP; retains significant weight |
-| #57 | 7.39% | Minor |
-| #19 | 7.17% | Minor |
-| #53 | 3.56% | Near-zero — Step 2 SP dominant signal is marginalised here |
+| Alpha | Weight | IS SP rank |
+|-------|:------:|:----------:|
+| #66 | **58.78%** | #5 |
+| #24 | 30.04% | #1 IS best |
+| #19 | 5.98% | #3 |
+| #51 | 4.23% | #4 |
+| #57 | 0.98% | #2 |
 
 ### 8.2 Performance Summary
 
 | Configuration | IS-train Sharpe | IS-val Sharpe | OOS Sharpe | OOS Ann. Return | OOS Vol | OOS Max DD |
 |---------------|:---------------:|:-------------:|:----------:|:---------------:|:-------:|:----------:|
-| `l57_s23` (baseline) | — | 1.830 | **2.152** | 26.74% | 11.33% | −4.54% |
-| EW blend (all 1.0) | — | 1.771 | 0.909 | 9.21% | 10.27% | −6.81% |
-| **Jointly optimised** | **1.631** | **2.248** | **1.156** | 13.17% | 11.24% | −5.35% |
+| **`l24_s24` (IS-selected ★)** | — | **2.602** | 0.118 | 0.71% | 10.82% | −9.92% |
+| EW blend (all 1.0) | — | 1.447 | 0.154 | 1.09% | 10.72% | −8.59% |
+| Jointly optimised blend | **1.851** | 1.206 | 0.474 | 4.44% | 10.25% | −12.35% |
+
+> ★ **IS-selected: `l24_s24`** (IS-val 2.602 >> blend 1.206). OOS of IS-selected: 0.118 — severe IS/OOS divergence.
 
 ### 8.3 Key Findings
 
-1. **Design 03 also fails to beat `l57_s23`.** Jointly optimised blend OOS Sharpe 1.156 << baseline 2.152. The blend approach does not improve L/S performance regardless of optimisation context (isolated Step 2 or joint Step 3).
+1. **IS selection: `l24_s24` wins IS-val by a wide margin (2.602 vs 1.206).** The single IS-best alpha pair is unambiguously IS-selected. Blending adds no IS-val benefit.
 
-2. **Classic IS→OOS degradation.** IS-train 1.631 → IS-val 2.248 → OOS 1.156. The optimizer overfits to the 2021–2023 regime; the 2025–2026 OOS window is structurally different and the learnt weights fail to generalise.
+2. **Severe IS/OOS divergence across all three configurations.** All OOS Sharpes are near-zero (0.118–0.474) despite IS-val Sharpes of 1.2–2.6. The 2021–2024 IS regime does not predict 2025–2026 OOS for the L/S combination.
 
-3. **Joint optimisation changes the weight structure significantly.** LP side is far more balanced (vs #24 dominating at 61% in Step 2). SP side elevates #31 (49%, virtually absent in Step 2 SP-only at 2.4%) and reduces #53 (3.6%, dominant in Step 2 at 39%). The full L/S objective sees the interaction between the two sides and produces qualitatively different weights.
+3. **IS-train overfitting is extreme.** Blend IS-train 1.851 → IS-val 1.206 → OOS 0.474. The 300-trial optimiser locks onto IS-train 2021–2023 regime features that do not generalise.
 
-4. **`l57_s23` (Sharpe 2.152) is robust across all blend experiments.** This is the third consecutive experiment — Design 01 pair grid, Design 02 side-blend, Design 03 joint-blend — where the single-pair signal outperforms all blending strategies on OOS.
+4. **LP weights: lower IS ranks dominate.** #136 (38.5%) and #101 (37.0%) are IS LP #5 and #3; IS LP best #24 gets only 14%. Same pattern as Step 2: the IS-train 2021–2023 sub-period favours different alphas than the full IS period.
 
-5. **Signal blending does not improve L/S performance in this universe.** With only 11 ETFs and weekly rebalancing, the cross-signal information gain from blending is insufficient to offset the overfitting cost of additional parameters. Single-signal `l57_s23` is the production configuration.
+5. **SP weight structure mirrors Step 2 SP blend.** #66 again dominates at 59%; #24 (IS SP best) at 30%. The IS-train regime consistently down-weights the IS-period best signals.
+
+6. **Conclusion: Step 3 is also negative.** `l24_s24` is IS-selected but has near-zero OOS Sharpe (0.118). The joint blend improves OOS over `l24_s24` (0.474 vs 0.118) but both are far below any useful threshold. Signal blending in this 11-ETF universe does not produce a viable L/S strategy.

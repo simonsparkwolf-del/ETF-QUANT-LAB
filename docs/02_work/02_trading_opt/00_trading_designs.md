@@ -93,17 +93,17 @@ Each `best_<signal>/` folder (and each individual run directory) contains:
 
 ## Design 01 — Dual-Signal L/S (Independent Alpha per Side)
 
-**Status:** Grid defined, backtest pending. See `trading_opt/02_dual_signal_test.md`.
+**Status:** Complete. See `trading_opt/02_dual_signal_test.md`.
 
 | Component | Class | Key Parameters |
 |-----------|-------|----------------|
-| Signal | `LongShortAlphaSignal(long_alpha_id, short_alpha_id)` | Grid: `LONG_ALPHAS=(57,19,31,23)` × `SHORT_ALPHAS=(23,53,31,19,57)` |
+| Signal | `LongShortAlphaSignal(long_alpha_id, short_alpha_id)` | Grid: `LONG_ALPHAS=(24,66,101,64)` × `SHORT_ALPHAS=(24,57,19,51,66)` |
 | Strategy | `DualSignalStrategy` | `n_long=3, n_short=3, stickiness_threshold=2` |
 | Risk | `BaselineRisk` | identical to Design 00 |
 
-**Motivation:** Step 1 OOS screening shows best LP alpha (#57, +0.637) ≠ best SP alpha (#23, +1.015). Splitting rankings per side should exceed the OOS Sharpe 1.819 ceiling of Design 00.  
-**Target:** OOS Sharpe > **1.819** (Alpha#23 single-signal baseline).  
-**Result:** Best pair `l57_s23` OOS Sharpe **2.220** (no-cost), **2.033** (with costs). Ranking preserved under realistic transaction costs.
+**Motivation:** Step 1 IS screening shows #24 dominates both IS LP and IS SP. Full IS LP × IS SP grid tests whether asymmetric pairing outperforms symmetric `l24_s24` on IS Sharpe.  
+**IS-selected:** `l24_s66` (IS Sharpe 1.236, Ann Return 15.72%) — beats symmetric baseline `l24_s24` (0.213).  
+**OOS validation:** `l24_s66` collapses to −0.853 (rank 18/20). Catastrophic IS/OOS divergence. OOS best `l66_s24` (0.965) = same alphas with sides reversed. #24 as long fails entirely in 2025–2026; #66 long is robustly positive (all 5 `l66_*` pairs OOS > 0).
 
 ---
 
@@ -113,13 +113,13 @@ Each `best_<signal>/` folder (and each individual run directory) contains:
 
 | Component | Class | Key Parameters |
 |-----------|-------|----------------|
-| Signal | `LongShortBlendSignal(lp_weights, sp_weights)` | LP: {#24: 61%, #19: 30%, #23: 7%, …}  SP: {#53: 39%, #57: 38%, #19: 21%, …} |
+| Signal | `LongShortBlendSignal(lp_weights, sp_weights)` | LP: Step 2 IS-correct blend weights (TBD)  SP: Step 2 IS-correct blend weights (TBD) |
 | Strategy | `DualSignalStrategy` | `n_long=3, n_short=3, stickiness_threshold=2` |
 | Risk | `BaselineRisk` | identical to Design 00/01 |
 
-**Motivation:** Step 2 LP/SP Bayesian blend optimisation produces side-specific weight vectors that each beat their Step 1 single-signal counterpart (LP OOS 2.130 vs 2.108; SP OOS −0.496 vs −0.790). Wiring both into the L/S strategy should compound both improvements.  
-**Target:** OOS Sharpe > **2.220** (Design 01 best pair `l57_s23`, no-cost).  
-**Result:** **Negative.** `lp_blend_sp_blend` OOS Sharpe **0.650** — far below baseline. Side-specific blend weights do not generalise to the full L/S context. `l57_s23` (2.190) remains best.
+**Motivation:** Step 2 LP/SP Bayesian blend optimisation produces side-specific weight vectors. Wiring both into the L/S strategy should compound both improvements.  
+**Target:** Beat IS-selected Design 01 best pair on IS Sharpe; OOS reported as validation.  
+**Result:** TBD — pending Step 2 re-run with IS-correct candidate pools.
 
 ---
 
@@ -134,5 +134,5 @@ Each `best_<signal>/` folder (and each individual run directory) contains:
 | Risk | `BaselineRisk` | identical to Design 00/01/02 |
 
 **Motivation:** Design 02 proved that optimising LP/SP weights in isolation (on single-side objectives) does not generalise to the joint L/S strategy. Step 3 optimises all 10 weights simultaneously with the full L/S Sharpe as the objective — no gradient needed, TPE is a black-box sampler.  
-**Target:** OOS Sharpe > **2.190** (`l57_s23` from Design 02 ablation).  
-**Result:** **Negative.** Jointly optimised blend OOS Sharpe **1.156** vs baseline 2.152. IS-train 1.631 → IS-val 2.248 → OOS 1.156 shows regime overfitting. `l57_s23` is the definitive winner across all blend experiments.
+**Target:** Beat IS-selected Design 01 best pair on IS Sharpe.  
+**Result:** TBD — pending Step 2 re-run (Design 03 candidate pools derive from Step 2).

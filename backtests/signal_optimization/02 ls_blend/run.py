@@ -8,10 +8,10 @@ Unlike Step 2 (which optimised LP and SP independently on single-side
 objectives), this study uses the complete DualSignalStrategy L/S backtest
 as the objective — no gradient required; TPE is a black-box sampler.
 
-Candidate pools (unchanged from Step 2)
+Candidate pools (IS-correct, from Step 1 IS ranking)
 -----------------------------------------
-  LP: #57, #24, #19, #31, #23
-  SP: #23, #53, #31, #19, #57
+  LP: #24, #66, #101, #64, #136
+  SP: #24, #57, #19, #51, #66
 
 Search space: 10 parameters
   u_lp_k ~ Uniform[0, 1]  for each k in LP_CANDIDATES  → normalised to LP simplex
@@ -29,7 +29,7 @@ Outputs: backtests/signal_optimization/02 ls_blend/outputs/
   summary.json
   best_ls_blend/            full artifacts (OOS window)
   equal_weight_blend/       full artifacts (OOS window)
-  l57_s23/                  full artifacts (OOS window)  — Design 01/02 baseline
+  l24_s24/                  full artifacts (OOS window)  — IS-best baseline (IS LP best = IS SP best = #24)
 """
 
 from __future__ import annotations
@@ -62,9 +62,11 @@ OOS_END        = date(2026,  3,  1)
 
 INITIAL_NAV = 10_000.0
 
-# ── candidate pools ────────────────────────────────────────────────────────────
-LP_CANDIDATES: tuple[int, ...] = (57, 24, 19, 31, 23)
-SP_CANDIDATES: tuple[int, ...] = (23, 53, 31, 19, 57)
+# ── candidate pools (Step 1 IS ranking) ───────────────────────────────────────
+# LP top 5 by IS LP Sharpe: #24 (1.122), #66 (0.744), #101 (0.732), #64 (0.726), #136 (0.709)
+# SP top 5 by IS SP Sharpe: #24 (-0.420), #57 (-0.559), #19 (-0.593), #51 (-0.621), #66 (-0.630)
+LP_CANDIDATES: tuple[int, ...] = (24, 66, 101, 64, 136)
+SP_CANDIDATES: tuple[int, ...] = (24, 57, 19, 51, 66)
 
 N_TRIALS = 300
 
@@ -192,7 +194,7 @@ def main() -> None:
             {aid: 1.0 for aid in LP_CANDIDATES},
             {aid: 1.0 for aid in SP_CANDIDATES},
         ),
-        "l57_s23":            LongShortBlendSignal({57: 1.0}, {23: 1.0}),
+        "l24_s24":            LongShortBlendSignal({24: 1.0}, {24: 1.0}),
     }
 
     eval_runs = [
@@ -207,7 +209,7 @@ def main() -> None:
     summary: dict[str, dict] = {
         "best_ls_blend": {"is_train_sharpe": study.best_value},
         "equal_weight_blend": {},
-        "l57_s23": {},
+        "l24_s24": {},
     }
     with tqdm(total=len(eval_runs), desc="Evaluating", unit="run") as pbar:
         for label, signal, window, start, end, save_arts in eval_runs:

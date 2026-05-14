@@ -20,7 +20,7 @@ Method
 
 Reference baselines (run once, saved alongside optimised result)
 ----------------------------------------------------------------
-  single_alpha_57/   — best Step 1 single alpha on OOS
+  single_alpha_24/   — best Step 1 single alpha on IS
   equal_weight_blend/ — all weights = 0.2 (null hypothesis for blending)
 
 Outputs: backtests/signal_optimization/01 blend/long power/outputs/
@@ -28,7 +28,7 @@ Outputs: backtests/signal_optimization/01 blend/long power/outputs/
   best_weights.json
   summary.json
   best_blend/           full artifacts (OOS window)
-  single_alpha_57/      full artifacts (OOS window)
+  single_alpha_24/      full artifacts (OOS window)
   equal_weight_blend/   full artifacts (OOS window)
 """
 
@@ -63,9 +63,9 @@ OOS_END        = date(2026,  3,  1)
 
 INITIAL_NAV = 10_000.0
 
-# ── LP candidate pool (Step 1 OOS LP ranking) ─────────────────────────────────
-# #24 included: highest OOS LP (2.055); no SP constraint in LP-only optimisation.
-LP_CANDIDATES: tuple[int, ...] = (57, 24, 19, 31, 23)
+# ── LP candidate pool (Step 1 IS LP ranking) ──────────────────────────────────
+# Top 5 by IS LP Sharpe: #24 (1.122), #66 (0.744), #101 (0.732), #64 (0.726), #136 (0.709)
+LP_CANDIDATES: tuple[int, ...] = (24, 66, 101, 64, 136)
 
 N_TRIALS = 150
 
@@ -180,7 +180,7 @@ def main() -> None:
     configs = {
         "best_blend":         AlphaBlendSignal(raw_best),
         "equal_weight_blend": AlphaBlendSignal({aid: 1.0 for aid in LP_CANDIDATES}),
-        "single_alpha_57":    AlphaBacktestSignal(57),
+        "single_alpha_24":    AlphaBacktestSignal(24),
     }
 
     # IS-train Sharpe for best_blend comes directly from the study — no re-run needed.
@@ -197,7 +197,7 @@ def main() -> None:
     summary: dict[str, dict] = {
         "best_blend": {"is_train_sharpe": study.best_value},
         "equal_weight_blend": {},
-        "single_alpha_57": {},
+        "single_alpha_24": {},
     }
     with tqdm(total=len(eval_runs), desc="Evaluating", unit="run") as pbar:
         for label, signal, window, start, end, save_arts in eval_runs:

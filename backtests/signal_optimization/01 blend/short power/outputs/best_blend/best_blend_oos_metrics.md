@@ -2,22 +2,22 @@
 
 ## Core Metrics
 - Start Value: `10,000.00`
-- End Value: `9,272.14`
-- Total Return: `-7.28%`
-- Annual Return: `-6.34%`
-- Annual Volatility: `11.81%`
-- Sharpe Ratio: `-0.496`
-- Max Drawdown: `-15.32%`
-- Turnover (avg per period): `32.21%` — sum(|Δ signed MV|) / (2 × total_value), by date
-- Turnover (annualized): `1674.76%` — avg per period × periods_per_year
-- Win Rate: `37.93%` — profitable weeks / total trade weeks
+- End Value: `9,012.90`
+- Total Return: `-9.87%`
+- Annual Return: `-8.61%`
+- Annual Volatility: `9.64%`
+- Sharpe Ratio: `-0.886`
+- Max Drawdown: `-15.12%`
+- Turnover (avg per period): `12.70%` — sum(|Δ signed MV|) / (2 × total_value), by date
+- Turnover (annualized): `660.20%` — avg per period × periods_per_year
+- Win Rate: `38.46%` — profitable weeks / total trade weeks
 - Periods Per Year: `52`
 - Number of Periods: `61`
 
 ## Benchmark / Alpha
-- Annual Excess Return vs SPY: `-21.21%`
-- CAPM Alpha (annualized) vs SPY: `3.50%`
-- CAPM Beta vs SPY: `-0.610`
+- Annual Excess Return vs SPY: `-23.89%`
+- CAPM Alpha (annualized) vs SPY: `0.43%`
+- CAPM Beta vs SPY: `-0.585`
 
 ## Exposure Notes
 - `Exposure` means the portfolio's market value exposure to risk.

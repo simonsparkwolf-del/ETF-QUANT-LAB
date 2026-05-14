@@ -9,11 +9,11 @@
 
 ## 1. Motivation
 
-Step 1 screening (`signal_opt/00_step1_screening.md`) revealed a structural asymmetry: the best OOS long-side alpha (**#57**, LP Δ +0.637 vs EW) and the best OOS short-side alpha (**#23**, SP Δ +1.015 vs EW) are different signals. `BaselineStrategy` forces both sides to share one ranking, so any single-alpha choice systematically underexploits one side.
+Step 1 IS screening (`signal_opt/00_step1_screening.md`) shows **#24 dominates both IS LP (1.122) and IS SP (−0.420)**. `BaselineStrategy` forces both sides to share one ranking — a symmetric `l24_s24` pair is the IS-baseline.
 
-This test measures whether giving each side its own independent signal — while keeping everything else identical — produces a higher OOS Sharpe than the best single-alpha baseline.
+This test measures whether giving each side its own independent signal — drawing from the IS LP pool on the long side and the IS SP pool on the short side — produces a higher IS Sharpe than the symmetric baseline. IS Sharpe is the selection criterion; OOS is reported as holdout validation.
 
-**Hypothesis**: a `(long=#57, short=#23)` pair should capture both advantages simultaneously, targeting OOS Sharpe > 1.819 (current single-alpha best, Alpha#23).
+**Hypothesis**: asymmetric pairing should improve IS Sharpe over symmetric `l24_s24`, capturing complementary information on each side.
 
 ---
 
@@ -53,24 +53,24 @@ signal = LongShortAlphaSignal(long_alpha_id=57, short_alpha_id=23)
 
 ## 4. Alpha Candidate Pools
 
-Selected from Step 1 OOS LP/SP screening. Criteria:
+Selected from Step 1 **IS LP/SP ranking**. IS Sharpe is the selection criterion.
 
 | Pool | Criterion | Members |
 |------|-----------|---------|
-| `LONG_ALPHAS` | OOS LP Δ vs EW > 0.29 | #57, #19, #31, #23 |
-| `SHORT_ALPHAS` | OOS SP Δ vs EW > 0.40, or pure SP | #23, #53, #31, #19, #57 |
+| `LONG_ALPHAS` | Top 4 IS LP Sharpe | #24, #66, #101, #64 |
+| `SHORT_ALPHAS` | Top 5 IS SP Sharpe | #24, #57, #19, #51, #66 |
 
-**Alpha profiles (OOS):**
+**Alpha profiles (IS):**
 
-| Alpha | OOS LP Δ vs EW | OOS SP Δ vs EW | L/S role |
-|-------|:--------------:|:--------------:|:--------:|
-| #57 | **+0.637** | +0.401 | LP specialist |
-| #23 | +0.292 | **+1.015** | SP specialist |
-| #19 | +0.477 | +0.433 | balanced |
-| #31 | +0.317 | +0.642 | balanced, SP-leaning |
-| #53 | −0.279 | +1.007 | pure SP (LP < EW) |
-
-`#53` is excluded from `LONG_ALPHAS` (LP below EW) but valid in `SHORT_ALPHAS`.
+| Alpha | IS LP Sharpe | IS SP Sharpe | Role |
+|-------|:------------:|:------------:|:----:|
+| #24 | **1.122** | **−0.420** | IS best on both sides |
+| #66 | 0.744 | −0.630 | IS LP #2; IS SP #5 |
+| #101 | 0.732 | −0.638 | IS LP #3 |
+| #64 | 0.726 | −0.668 | IS LP #4 |
+| #57 | 0.691 | −0.559 | IS SP #2 (LP pool boundary) |
+| #19 | 0.564 | −0.593 | IS SP #3 |
+| #51 | 0.618 | −0.621 | IS SP #4 |
 
 ---
 
@@ -78,12 +78,12 @@ Selected from Step 1 OOS LP/SP screening. Criteria:
 
 **20 pairs**: `LONG_ALPHAS × SHORT_ALPHAS` (4 × 5).
 
-| Long ↓ \ Short → | #23 | #53 | #31 | #19 | #57 |
+| Long ↓ \ Short → | #24 | #57 | #19 | #51 | #66 |
 |:----------------:|:---:|:---:|:---:|:---:|:---:|
-| **#57** | l57_s23 | l57_s53 | l57_s31 | l57_s19 | l57_s57 (sym) |
-| **#19** | l19_s23 | l19_s53 | l19_s31 | l19_s19 (sym) | l19_s57 |
-| **#31** | l31_s23 | l31_s53 | l31_s31 (sym) | l31_s19 | l31_s57 |
-| **#23** | l23_s23 (sym) | l23_s53 | l23_s31 | l23_s19 | l23_s57 |
+| **#24** | l24_s24 (sym) | l24_s57 | l24_s19 | l24_s51 | l24_s66 |
+| **#66** | l66_s24 | l66_s57 | l66_s19 | l66_s51 | l66_s66 (sym) |
+| **#101** | l101_s24 | l101_s57 | l101_s19 | l101_s51 | l101_s66 |
+| **#64** | l64_s24 | l64_s57 | l64_s19 | l64_s51 | l64_s66 |
 
 Symmetric pairs (marked **sym**) reproduce single-alpha `BaselineStrategy` results.
 
@@ -93,12 +93,12 @@ Symmetric pairs (marked **sym**) reproduce single-alpha `BaselineStrategy` resul
 
 Results to beat (from `01_warmup_test.md`, `BaselineStrategy` + `BaselineRisk`):
 
-| Split | Best single-alpha | Sharpe | Ann. Return | Max DD |
-|-------|-------------------|:------:|:-----------:|:------:|
-| IS | Alpha#66 | 0.967 | 8.90% | −12.83% |
-| OOS | **Alpha#23** | **1.819** | **19.34%** | **−6.47%** |
+| Split | Best single-alpha (IS) | IS Sharpe | OOS Sharpe |
+|-------|------------------------|:---------:|:----------:|
+| IS-best | Alpha#66 | 0.967 | — |
+| Symmetric baseline in this grid | Alpha#24 `l24_s24` | TBD | TBD |
 
-The primary target is OOS Sharpe > **1.819**.
+The primary IS target is: IS-selected pair must beat `l24_s24` (symmetric baseline in the new pool) on IS Sharpe. OOS Sharpe of the IS-selected pair is the holdout result.
 
 ---
 
@@ -128,96 +128,99 @@ Run scripts:
 
 ### 8.1 In-Sample Grid (2021-03-03 → 2024-12-31)
 
-Sorted by Sharpe descending. IS baseline (single-alpha `BaselineStrategy`): Alpha#66 = **0.967**.
+Sorted by Sharpe descending. Symmetric baseline `l24_s24` = 0.213, `l66_s66` = 1.177.
 
 | Long α | Short α | Sharpe | Ann. Return | Ann. Vol | Max DD | Turnover Ann. |
 |:------:|:-------:|:------:|:-----------:|:--------:|:------:|:-------------:|
-| **#23** | **#31** ★ | **1.440** | **18.70%** | **12.46%** | **−9.14%** | 4566% |
-| #57 | #19 | 1.152 | 12.82% | 11.01% | −13.54% | 3920% |
-| #23 | #19 | 0.830 | 7.72% | 9.51% | −12.37% | 2941% |
-| #31 | #23 | 0.806 | 8.93% | 11.42% | −10.45% | 3364% |
-| #57 | #23 | 0.638 | 5.41% | 8.88% | −16.02% | 2039% |
-| #57 | #53 | 0.628 | 4.91% | 8.16% | −15.86% | 2126% |
-| #57 | #57 (sym) | 0.619 | 4.78% | 8.07% | −15.01% | 2070% |
-| #57 | #31 | 0.581 | 5.04% | 9.20% | −13.75% | 2852% |
-| #31 | #31 (sym) | 0.577 | 5.91% | 11.00% | −12.08% | 2881% |
-| #31 | #19 | 0.546 | 5.29% | 10.44% | −11.86% | 3275% |
-| #23 | #57 | 0.450 | 3.32% | 7.97% | −13.73% | 1896% |
-| #23 | #53 | 0.449 | 3.40% | 8.19% | −16.46% | 1957% |
-| #23 | #23 (sym) | 0.400 | 2.93% | 8.02% | −16.97% | 1871% |
-| #19 | #31 | 0.356 | 3.09% | 9.91% | −13.36% | 2290% |
-| #31 | #53 | 0.323 | 2.29% | 7.99% | −12.25% | 1686% |
-| #31 | #57 | 0.275 | 1.85% | 7.78% | −11.48% | 1776% |
-| #19 | #23 | 0.223 | 1.68% | 9.50% | −12.92% | 2126% |
-| #19 | #53 | 0.115 | 0.62% | 8.39% | −16.36% | 2078% |
-| #19 | #19 (sym) | −0.213 | −1.42% | 5.89% | −16.66% | 1397% |
-| #19 | #57 | −0.396 | −2.55% | 6.06% | −18.14% | 1402% |
+| **#24** | **#66** ★ | **1.236** | **15.72%** | **12.46%** | **−12.89%** | 3548% |
+| #66 | #66 (sym) | 1.177 | 13.60% | 11.39% | −13.02% | 4550% |
+| #101 | #66 | 1.177 | 13.27% | 11.12% | −13.47% | 3224% |
+| #66 | #19 | 1.163 | 13.36% | 11.34% | −10.43% | 4505% |
+| #66 | #51 | 1.124 | 13.08% | 11.54% | −10.19% | 4384% |
+| #66 | #24 | 1.117 | 13.38% | 11.88% | −12.59% | 4305% |
+| #101 | #19 | 1.092 | 11.44% | 10.43% | −13.78% | 3012% |
+| #101 | #24 | 1.088 | 12.17% | 11.14% | −15.04% | 3218% |
+| #66 | #57 | 1.049 | 9.83% | 9.36% | −11.13% | 3852% |
+| #24 | #51 | 1.004 | 10.59% | 10.60% | −12.76% | 2851% |
+| #101 | #57 | 0.980 | 10.05% | 10.32% | −14.07% | 3524% |
+| #24 | #19 | 0.906 | 10.62% | 11.93% | −12.73% | 3070% |
+| #101 | #51 | 0.882 | 9.58% | 11.07% | −12.78% | 3117% |
+| #64 | #66 | 0.456 | 4.08% | 9.85% | −17.96% | 1774% |
+| #64 | #19 | 0.450 | 3.97% | 9.72% | −16.97% | 1730% |
+| #64 | #51 | 0.403 | 3.56% | 9.94% | −17.10% | 1631% |
+| #64 | #57 | 0.378 | 3.25% | 9.75% | −17.27% | 1792% |
+| #64 | #24 | 0.324 | 2.73% | 9.81% | −16.78% | 1722% |
+| #24 | #24 (sym) | 0.213 | 1.48% | 8.74% | −15.40% | 1635% |
+| #24 | #57 | 0.108 | 0.58% | 10.21% | −14.01% | 1916% |
 
-> ★ IS best: **l23_s31** (Sharpe 1.440, Total Return 92.7%, Win Rate 61.3%, CAPM α 14.92%, β 0.228).  
-> Artifacts: `backtests/dual_signal/no_trans_cost/in_sample/outputs/best_l23_s31/`
+> ★ **IS-selected: `l24_s66`** (Sharpe 1.236). CAPM α 11.83%, β 0.269.
+> Artifacts: `backtests/dual_signal/no_trans_cost/in_sample/outputs/best_l24_s66/`
 
 ---
 
-### 8.2 Out-of-Sample Grid (2025-01-01 → 2026-03-01)
+### 8.2 Out-of-Sample Validation (2025-01-01 → 2026-03-01)
 
-Sorted by Sharpe descending. OOS baseline (single-alpha `BaselineStrategy`): Alpha#23 = **1.819**.
+Sorted by Sharpe descending. OOS baseline `l24_s24` (sym) = −0.011.
 
 | Long α | Short α | Sharpe | Ann. Return | Ann. Vol | Max DD | Turnover Ann. |
 |:------:|:-------:|:------:|:-----------:|:--------:|:------:|:-------------:|
-| **#57** | **#23** ★ | **2.220** | **27.56%** | **11.27%** | **−4.54%** | 5448% |
-| #23 | #23 (sym) | 2.022 | 22.11% | 10.14% | −5.22% | 4714% |
-| #57 | #19 | 1.933 | 20.10% | 9.73% | −4.51% | 5540% |
-| #23 | #57 | 1.917 | 21.47% | 10.44% | −6.59% | 5090% |
-| #57 | #31 | 1.831 | 20.99% | 10.74% | −5.67% | 5568% |
-| #57 | #53 | 1.695 | 20.65% | 11.48% | −6.11% | 5597% |
-| #23 | #53 | 1.645 | 18.35% | 10.59% | −6.65% | 4948% |
-| #57 | #57 (sym) | 1.643 | 19.14% | 11.04% | −7.40% | 5628% |
-| #23 | #31 | 1.618 | 17.09% | 10.08% | −5.23% | 4891% |
-| #23 | #19 | 1.470 | 16.98% | 11.09% | −6.60% | 4891% |
-| #31 | #23 | 1.093 | 10.60% | 9.65% | −5.23% | 4490% |
-| #31 | #31 (sym) | 0.964 | 9.61% | 10.03% | −5.03% | 4662% |
-| #31 | #57 | 0.858 | 8.94% | 10.64% | −8.67% | 4950% |
-| #31 | #19 | 0.779 | 7.69% | 10.17% | −7.33% | 4609% |
-| #31 | #53 | 0.705 | 6.69% | 9.87% | −6.41% | 4635% |
-| #19 | #23 | 0.220 | 1.82% | 10.81% | −10.28% | 4466% |
-| #19 | #53 | 0.172 | 1.07% | 8.02% | −10.01% | 3737% |
-| #19 | #57 | 0.138 | 0.88% | 9.67% | −11.24% | 4544% |
-| #19 | #31 | −0.209 | −2.08% | 8.40% | −10.09% | 3824% |
-| #19 | #19 (sym) | −0.296 | −3.12% | 9.25% | −11.39% | 3690% |
+| #66 | #24 | **0.965** | 8.77% | 9.14% | −6.19% | 4853% |
+| #66 | #57 | 0.662 | 5.92% | 9.34% | −5.97% | 4883% |
+| #66 | #19 | 0.416 | 3.64% | 9.70% | −6.31% | 4800% |
+| #101 | #51 | 0.360 | 3.29% | 10.52% | −10.08% | 4360% |
+| #66 | #66 (sym) | 0.303 | 2.65% | 10.38% | −7.41% | 4686% |
+| #66 | #51 | 0.257 | 2.11% | 10.08% | −7.57% | 4772% |
+| #24 | #57 | 0.249 | 2.18% | 11.03% | −8.66% | 3270% |
+| #101 | #57 | 0.097 | 0.47% | 10.52% | −10.58% | 4904% |
+| #24 | #24 (sym) | −0.011 | −0.68% | 10.80% | −9.92% | 3015% |
+| #64 | #24 | −0.028 | −0.45% | 7.16% | −10.38% | 3504% |
+| #101 | #66 | −0.057 | −1.14% | 10.51% | −11.96% | 4146% |
+| #24 | #51 | −0.138 | −1.93% | 10.35% | −9.02% | 3245% |
+| #101 | #19 | −0.273 | −3.05% | 9.66% | −11.08% | 4220% |
+| #101 | #24 | −0.279 | −3.16% | 9.79% | −11.82% | 4247% |
+| #64 | #57 | −0.312 | −2.96% | 8.48% | −10.35% | 3586% |
+| #64 | #51 | −0.585 | −5.24% | 8.57% | −13.42% | 3713% |
+| #64 | #19 | −0.760 | −5.85% | 7.56% | −10.80% | 3539% |
+| **#24** | **#66 ★IS** | **−0.853** | **−8.02%** | **9.30%** | **−11.18%** | 2454% |
+| #24 | #19 | −0.876 | −8.65% | 9.78% | −12.22% | 2515% |
+| #64 | #66 | −0.951 | −6.19% | 6.50% | −10.61% | 1766% |
 
-> ★ OOS best: **l57_s23** (Sharpe 2.220, Total Return 32.4%, Win Rate 58.3%, CAPM α 24.20%, β 0.053).  
-> Artifacts: `backtests/dual_signal/no_trans_cost/out_sample/outputs/best_l57_s23/`
+> OOS best: `l66_s24` (0.965) — IS rank #6 (1.117). Reported as divergence finding, not selection.
+> **IS-selected `l24_s66` OOS rank: 18/20 (−0.853) — catastrophic IS/OOS divergence.**
 
 ---
 
 ### 8.3 Best-Pair Summary
 
-| Split | Best Pair | Sharpe | Ann. Return | Max DD | Total Return | Win Rate | CAPM α | CAPM β | vs Baseline Δ Sharpe |
-|-------|-----------|:------:|:-----------:|:------:|:------------:|:--------:|:------:|:------:|:-------------------:|
-| IS | **l23_s31** | 1.440 | 18.70% | −9.14% | 92.7% | 61.3% | 14.92% | 0.228 | +0.473 vs #66 (0.967) |
-| OOS | **l57_s23** | **2.220** | **27.56%** | **−4.54%** | 32.4% | 58.3% | 24.20% | 0.053 | **+0.401 vs #23 (1.819)** |
+> **Methodology:** IS-best pair is the selected configuration. OOS is holdout validation only.
+
+| Split | Best Pair | Sharpe | Ann. Return | Max DD | CAPM α | CAPM β |
+|-------|-----------|:------:|:-----------:|:------:|:------:|:------:|
+| **IS (selected)** | **`l24_s66` ★** | **1.236** | **15.72%** | **−12.89%** | 11.83% | 0.269 |
+| OOS validation of IS winner | `l24_s66` | −0.853 | −8.02% | −11.18% | −11.96% | 0.262 |
+| OOS retrospective best | `l66_s24` | 0.965 | 8.77% | −6.19% | 7.01% | 0.118 |
 
 ---
 
 ### 8.4 Key Findings
 
-**1. Hypothesis confirmed — asymmetric signals beat the single-signal ceiling.**  
-OOS `l57_s23` achieves Sharpe **2.220**, exceeding the best single-alpha `BaselineStrategy` result (Alpha#23, 1.819) by **+0.401**. Using #57's LP strength for long selection and #23's SP strength for short selection compounds both advantages.
+**1. IS/OOS divergence is catastrophic for IS-selected pair.**
+`l24_s66` (IS Sharpe 1.236) collapses to OOS Sharpe −0.853 — ranking 18th out of 20. #24 long side performs well in IS (2021–2024) but completely fails in OOS (2025–2026).
 
-**2. The asymmetric pair outperforms even the stronger symmetric benchmark.**  
-OOS `l23_s23` (sym) achieves 2.022 — already above the baseline 1.819 due to `DualSignalStrategy`'s independent stickiness per side and conflict exclusion. But `l57_s23` adds a further +0.198 by replacing the long signal with the LP-specialist #57.
+**2. OOS winner is essentially the IS-selected pair reversed.**
+OOS best `l66_s24` (0.965) uses the same two alphas as the IS-best pair (`l24_s66`) but with long/short sides swapped. The relative relationship between #24 and #66 entirely reverses between IS and OOS.
 
-**3. Alpha #19 fails as a long signal in the L/S context.**  
-Despite OOS LP Δ +0.477 in the signal-opt framework (long-only softmax), all five `#19`-long pairs produce OOS Sharpe ≤ 0.22. The signal-opt LP test is frictionless and long-only; in the L/S context the stickiness and momentum filter interactions appear to erode its edge entirely.
+**3. #24 as long signal fails on OOS.**
+All 5 pairs with #24 on the long side have OOS Sharpe ≤ 0.249 (`l24_s57`), with most negative. Despite #24 being IS LP best, it provides no long-side edge in 2025–2026.
 
-**4. IS and OOS best pairs differ — overfitting risk is real.**  
-IS best is `l23_s31` (1.440); OOS best is `l57_s23` (2.220). IS rank correlation with OOS rank is low, consistent with the same finding in `01_warmup_test.md`. IS results should not be used to select the production pair; OOS validation is mandatory.
+**4. #66 as long signal is robust on OOS.**
+All 5 `l66_*` pairs have positive OOS Sharpe (0.257–0.965). `l66_s24` wins OOS but was IS rank #6. The OOS robustness of #66 long is broad — not one lucky pair.
 
-**5. All `#57`-long pairs produce OOS Sharpe ≥ 1.643.**  
-The LP-specialist #57 is robustly beneficial on the long side regardless of which SP alpha is used for shorts. The short-side choice matters less, but #23 is still the best short partner (+0.58 over the worst #57-long pair).
+**5. OOS best (0.965) is far below the original OOS-contaminated run (2.220).**
+With IS-correct pools, the best OOS Sharpe is 0.965 vs 2.220 from the previous OOS-selected run. This confirms the previous result was inflated by pool contamination.
 
-**6. Drawdown improves substantially.**  
-`l57_s23` OOS Max DD is **−4.54%**, vs −6.47% for baseline Alpha#23 — a 30% reduction in peak drawdown despite higher returns.
+**6. Implication.**
+IS-based selection fails to predict OOS in this universe. IS/OOS regime shift is severe — the IS winner is the OOS loser. Walk-forward validation would be needed for a methodologically clean selection.
 
 ---
 
@@ -233,71 +236,22 @@ SPDR sector ETFs are among the most liquid instruments in the US market. Commiss
 | `short_cost_per_day` | `0.003 / 365 ≈ 8.22e-6` | 0.30% p.a. borrow rate (ETB tier) |
 | `base_slippage` | `0.0` | Already captured in `long_cost`; set to 0 to avoid double-counting |
 
-Estimated annual cost drag for `l57_s23` (turnover 54.48×):
-- Long cost: `0.0002 × 54.48 ≈ 1.1%`
-- Short borrow: `~0.3%`
-- **Total: ~1.4% per year**
-
 Run script: `backtests/dual_signal/trans_cost/out_sample/run.py`
 
 ---
 
 ### 9.2 Key Pairs
 
-Five pairs selected to answer: *does the no-cost OOS ranking hold under realistic frictions?*
-
-| Pair | Role | No-Cost OOS Sharpe |
-|:----:|------|-----------------:|
-| **l57_s23** | Primary hypothesis pair; OOS #1 | 2.220 |
-| **l23_s23** (sym) | Alpha#23 single-signal baseline; OOS #2 | 2.022 |
-| **l57_s19** | #57 long robustness check; OOS #3 | 1.933 |
-| **l57_s57** (sym) | Alpha#57 single-signal baseline; OOS #8 | 1.643 |
-| **l23_s31** | IS best pair — validate under costs | 1.618 |
+> **TBD — select key pairs from IS grid (§8.1) after re-run.**
 
 ---
 
 ### 9.3 Results (OOS: 2025-01-01 → 2026-03-01)
 
-Sorted by Sharpe descending.
-
-| Pair | Sym | Sharpe | Ann. Return | Ann. Vol | Max DD | Turnover Ann. | Δ Sharpe vs no-cost |
-|:----:|:---:|:------:|:-----------:|:--------:|:------:|:-------------:|:-------------------:|
-| **l57_s23** ★ | | **2.033** | **24.62%** | 11.15% | −4.66% | 5481% | −0.187 |
-| l23_s23 | ✓ | 1.962 | 21.37% | 10.15% | −5.31% | 4687% | −0.060 |
-| l57_s19 | | 1.790 | 18.43% | 9.72% | −4.63% | 5543% | −0.143 |
-| l23_s31 | | 1.556 | 16.38% | 10.09% | −5.32% | 4864% | −0.062 |
-| l57_s57 | ✓ | 1.516 | 17.49% | 11.04% | −7.53% | 5631% | −0.127 |
-
-Extended metrics:
-
-| Pair | Win Rate | CAPM α | CAPM β | Ann. Return (no-cost→cost) |
-|:----:|:--------:|:------:|:------:|:--------------------------:|
-| l57_s23 | 56.7% | 22.29% | 0.024 | 27.56% → 24.62% (−2.94pp) |
-| l23_s23 | 63.3% | 16.16% | 0.244 | 22.11% → 21.37% (−0.74pp) |
-| l57_s19 | 56.7% | 16.24% | 0.076 | 20.10% → 18.43% (−1.67pp) |
-| l23_s31 | 56.7% | 11.86% | 0.249 | 17.09% → 16.38% (−0.71pp) |
-| l57_s57 | 56.7% | 15.67% | 0.070 | 19.14% → 17.49% (−1.65pp) |
-
-Artifacts: `backtests/dual_signal/trans_cost/out_sample/outputs/<pair>/`
+> **TBD**
 
 ---
 
 ### 9.4 Key Findings
 
-**1. l57_s23 remains the top pair under realistic costs.**  
-Sharpe 2.033 (vs 1.962 for l23_s23), maintaining its lead. The no-cost ranking order is fully preserved across all five pairs.
-
-**2. Still decisively beats the single-alpha baseline.**  
-l57_s23 with costs (2.033) vs best single-alpha no-cost baseline Alpha#23 (1.819): **+0.214 Sharpe advantage**. Transaction costs do not close the gap with the single-signal ceiling.
-
-**3. Actual cost drag is ~2.94pp annual — higher than the 1.4% estimate.**  
-The estimate assumed equal long/short contribution to turnover. In practice the alpha_110 momentum filter causes additional forced short covers, generating more short-side activity than expected. The long-cost component is still ~1.1%; the excess (~1.8pp) comes from higher-than-assumed short-side churn.
-
-**4. Cost sensitivity differs sharply by pair.**  
-#23-long pairs (l23_s23, l23_s31) lose only −0.06 Sharpe under costs, while #57-long pairs lose −0.13 to −0.19. The reason: #57-long combinations have higher turnover (5481–5631%) vs #23-long combinations (4687–4864%), so cost drag is proportionally larger. Despite this, l57_s23 still leads.
-
-**5. l57_s23 becomes more market-neutral under costs.**  
-CAPM β drops from 0.053 (no-cost) to **0.024** (with-cost). In contrast, #23-long pairs maintain β ≈ 0.24–0.25, reflecting significant market exposure. l57_s23's near-zero β is a structural advantage that persists.
-
-**6. l23_s31 (IS best) is not competitive under costs.**  
-Sharpe 1.556 under costs, ranking 4th of 5. Confirms that IS selection would have produced an inferior choice regardless of the cost regime.
+TBD after re-run.
