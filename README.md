@@ -19,27 +19,27 @@ Whenever run your code, remember only in venv.
 
 ## Folders
 
-- **research**: **the group member's playground** *keeps the experiments, the pilot tests. Name your folder porperly like "YYYYMMDD_OWNER_RESEARCH NAME" "20260426_Simon_ML Infra"- . **And save your documents including markdowns,model weights only in this private folder**.*
+- **research**: **the group member's playground** — keeps experiments, pilot tests, and personal notes. Name your folder like `YYYYMMDD_OWNER_Topic` (e.g. `20260426_Simon_ML-Infra`). Save all personal documents and model weights here.
 
 ---
-**The folder below are supposed to be changed only for official purpose approved by touchpoint meeting.**
-- **backtests**: keeps the reports of backtest experiments on a set of models for horizontal comparison.
-- **docs**: keeps the model blueprints and crucial documents in our project.
-- **data**: keeps the ETF data (raw and processed) for training and backtest.
-- **model_dev**: keeps the files related to the development of a model e.g. the training notebook, the artifacts etc.
-- **reports**: keeps the outputs of a specific model and the reports about the model in e.g. results, data analysis etc.
-- **src**: source code of our project. Use "import from QuantLab" in the project folder to call the modules.
-- **script**： keeps the scripts of building the data pool or other change on the project.
-- **weights**: keeps the weights of a certain model and the parameters of a certain data processing step if its traing is time-consuming.
+**The folders below are changed only for official purposes approved by a touchpoint meeting.**
+
+- **src**: source code (`QuantLab` package). Use `from QuantLab.xxx import yyy` to call modules.
+- **backtests**: backtest run outputs, organised by strategy type and cost regime.
+- **docs**: design documents, architecture specs, and research roadmap.
+- **data**: ETF raw and processed data (`data/processed/data.csv` is the main input).
+- **scripts**: data pipeline scripts (e.g. `dataset_builder.ipynb`).
+- **debrief**: periodic team reports (`YYYYMMDD/report.md` + `report.html`).
 
 ## Reminders
-- **All pilot tests including the documents should be placed in /research/XXX folder.**
-- **Don't create any folder or any file outside /research folder unless Simon approves.**
+- **All pilot tests and personal documents must go in `/research/XXX`.**
+- **Do not create folders or files outside `/research` without Simon's approval.**
 
 ## Milestones
-1. April 21st - The first draft of baseline model.
-2. April 26th - Alpha test and ML model architect drafts.
-3. May 3rd - Structured database.
-4. May 8th - ML signal source pilot test.
-5. May 9th - Back test engine is ready.
-6. May 11st - Datainfra and backtest engine are completed.
+1. April 21st — First draft of baseline model.
+2. April 26th — Alpha test and ML model architecture drafts.
+3. May 3rd — Structured database (`datapool.db`).
+4. May 8th — ML signal pilot test.
+5. May 9th — Backtest engine ready.
+6. May 11th — Data infrastructure and backtest engine completed.
+7. May 13th — Signal optimization Step 1 + Baseline L/S screening completed (IS + OOS).

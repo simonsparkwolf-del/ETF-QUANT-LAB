@@ -26,7 +26,8 @@ from QuantLab.utils.config import load_pathes
 warnings.filterwarnings("ignore")
 pathes = load_pathes()
 # ── Output directory ──────────────────────────────────────────────────────────
-OUT = f"{pathes['reports_path']}/baseline/output"
+# Archived at research/20260426_Team_Early-Baseline/; outputs live in sibling reports/ folder
+OUT = str(Path(__file__).resolve().parents[2] / "reports" / "baseline" / "output")
 os.makedirs(OUT, exist_ok=True)
 
 # ── Universe ──────────────────────────────────────────────────────────────────
@@ -348,23 +349,6 @@ def print_metrics(strat_m, bench_m, label):
         bv = f"{bv_raw:.2%}" if k in pct_keys else f"{bv_raw:.3f}"
         print(f"  {k:<22} {sv:>16} {bv:>14}")
 
-def save_metrics(strat_m, bench_m, label, fname: str):
-    with open(fname, "w") as f:
-        f.write(f"  {label}\n")
-        f.write(f"{'─'*60}\n")
-        f.write(f"  {'Metric':<22} {'Strategy':>16} {'SPY Benchmark':>14}\n")
-        f.write(f"  {'─'*54}\n")
-        pct_keys = {"Total Return", "CAGR", "Ann. Volatility",
-                "Max Drawdown", "Win Rate", "Ann. Alpha",
-                "Ann. Turnover", "Avg Exposure"}
-        for k, v in strat_m.items():
-            sv = f"{v:.2%}" if k in pct_keys else f"{v:.3f}"
-            bv_raw = bench_m.get(k, np.nan)
-            bv = f"{bv_raw:.2%}" if k in pct_keys else f"{bv_raw:.3f}"
-            f.write(f"  {k:<22} {sv:>16} {bv:>14}\n")
-        f.write(f"{'─'*60}\n")
-    print(f"  Saved: {fname}")
-
 
 # =============================================================================
 # 6. VISUALISATION
@@ -523,7 +507,6 @@ def pipeline(df: pd.DataFrame, label: str) -> dict:
     bm = metrics(bench.reindex(strat.index).dropna(),
                  bench.reindex(strat.index).dropna())
     print_metrics(sm, bm, label)
-    save_metrics(sm, bm, label, f"{OUT}/{label}_metrics.txt")
     tag  = label.replace(" ", "_").replace("/", "-").replace("(","").replace(")","")
     plot_performance(strat, bench, eq,
                      title=f"Cumulative Returns — {label} [Long-Only]",
@@ -550,8 +533,8 @@ if __name__ == "__main__":
     from QuantLab.utils.config import load_pathes
     pathes = load_pathes()
     print("Loading data...")
-    df_train = load_and_clean(f"{pathes['data_path']}/processed/train_raw_data.csv")
-    df_test  = load_and_clean(f"{pathes['data_path']}/processed/test_raw_data.csv")
+    df_train = load_and_clean(f"{pathes['data']}/processed/train_raw_data.csv")
+    df_test  = load_and_clean(f"{pathes['data']}/processed/test_raw_data.csv")
 
     # ── In-sample (2021-2024) ─────────────────────────────────────────────
     train_lo = pipeline(df_train, "In-Sample 2021-2024")

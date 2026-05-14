@@ -29,7 +29,7 @@
 
 ### 2.1 Data Infrastructure
 
-**Docs**: `docs/01 Data Infra.md`, `docs/02 Data Instruction.md`
+**Docs**: `docs/03_datapool/00_database.md`
 
 **Universe**: 11 SPDR Sector ETFs (XLB, XLC, XLE, XLF, XLI, XLK, XLP, XLU, XLV, XLRE, XLY) + SPY/SPX/VIX/US10Y benchmark series. Data is ingested from Google Drive into `data/processed/data.csv`, then pushed into `datapool.db` (SQLite) via `scripts/dataset_builder.ipynb`.
 
@@ -57,7 +57,7 @@
 
 ### 2.2 Alpha Pool — 101 Formulaic Alphas
 
-**Docs**: `docs/05 Alpha.md` | **Code**: `src/QuantLab/alpha/alpha_metrics.py`
+**Docs**: `docs/03_datapool/02_alpha.md` | **Code**: `src/QuantLab/alpha/alpha_metrics.py`
 
 Implemented from Kakushadze (2015) *101 Formulaic Alphas*:
 
@@ -75,7 +75,7 @@ The project also defines **custom alphas (alpha_id 108–136)**, including `alph
 
 ### 2.3 Trading architecture
 
-**Docs**: `docs/03 Architecture.md` — **§B. Architecture** (illustration and coworking). The figure below extends that sketch with a **SIGNAL pool** layer before **ranking score** (weekly per-ETF score used for ranking).
+**Docs**: `docs/03_datapool/01_signal.md` | **Code**: `src/QuantLab/signal/`. The figure below shows the **SIGNAL pool** layer before **ranking score** (weekly per-ETF score used for ranking).
 
 Pipeline: **Data Pool** feeds **ML model module** and **Traditional quant signals**; their outputs (and other registered channels) live in the **SIGNAL pool** (e.g. `weekly_signal` in `datapool.db`). Each week those inputs are turned into a **ranking score** (cross-sectional score per ETF); the **Trading module** consumes the ranking, applies risk/strategy rules, and the **Backtest Engine** simulates fills.
 
@@ -111,7 +111,7 @@ Five ML signals are currently trained and stored in the **SIGNAL pool** (`weekly
 
 ### 2.4 Backtest Engine
 
-**Docs**: `docs/06 Backtest Engine.md` | **Code**: `src/QuantLab/backtest/`
+**Docs**: `docs/04_infra/00_engine.md` | **Code**: `src/QuantLab/backtest/`
 
 Four-module design with strict separation of concerns:
 
@@ -133,7 +133,7 @@ Four-module design with strict separation of concerns:
 
 ### 2.5 Signal optimization framework
 
-**Docs**: `docs/07 Signal Optimization.md` | **Code:** `SiganlOptimizationStrategy` and the signal-optimization backtest batch suite
+**Docs**: `docs/02_work/01_signal_opt/00_screening.md` | **Code:** `SiganlOptimizationStrategy` and the signal-optimization backtest batch suite
 
 **Purpose:** choose or tune **one signal score per ETF per rebalance**; the strategy maps scores → **softmax weights** → frictionless weekly rebalance. Runs are **zero fee, zero slippage** unless a friction study is specified. Each candidate is compared to the **equal-weight baseline (§0)** on the same calendar via `QuantLab.backtest.benchmark.compare_metrics(baseline, candidate)` when reporting.
 
@@ -160,7 +160,7 @@ Four-module design with strict separation of concerns:
 
 ### 2.6 Baseline Long-Short Strategy
 
-**Docs**: `docs/08 baseline strategy.md` | **Code:** `BaselineStrategy` and baseline risk helpers in `QuantLab.backtest`
+**Docs**: `docs/02_work/02_trading_opt/01_warmup_test.md` | **Code:** `BaselineStrategy` and baseline risk helpers in `QuantLab.backtest`
 
 **Design**: Market-neutral long-short portfolio, weekly rebalancing. Long top-3 / Short bottom-3 ETFs, target weight ±33.3% each, gross exposure 200%, net exposure ~0%.
 
@@ -179,19 +179,155 @@ NORMAL (200% gross)  ──[DD ≥ 10%]──►  LIGHT (100% gross)  ──[DD 
 
 ---
 
-### 2.7 Backtest results (IS / OOS)
+### 2.7 Backtest Results (IS / OOS)
 
-**Calendar:** all **baseline** and **signal-optimization** batch runners use **in-sample 2021-03-03 → 2024-12-31** (200 weekly periods) and **out-of-sample 2025-01-01 → 2026-03-01** (61 weekly periods); initial NAV 10,000; zero fees and slippage (per each `run.py`).
+**Calendar:** All **baseline** and **signal-optimization** batch runners share the same two windows — **in-sample 2021-03-03 → 2024-12-31** (200 weekly periods) and **out-of-sample 2025-01-01 → 2026-03-01** (61 weekly periods). Initial NAV: 10,000; zero fees and slippage (per each `run.py`).
 
-**Metrics:** **LP** / **SP** (signal optimization) report **Sharpe** and **annualized return** only — not max drawdown. **BL** (Baseline L/S) adds **max drawdown**. **LP** = long softmax alpha grid; **SP** = short softmax on negated scores; **BL** = `BaselineStrategy` + `BaselineRisk` on the same alpha id per cell.
+**Column tags:** **LP** = long softmax signal-opt grid; **SP** = short softmax on negated scores; **BL** = `BaselineStrategy` + `BaselineRisk` (market-neutral long-3 / short-3); **IS** / **OOS** = in-sample / out-of-sample.
 
-**Wide-table header:** first row = column labels (**Sharpe**, **ANN return**, **Max DD**). The first body row lists **backtest tags** per column (**LP** / **SP** = signal-opt softmax grids; **BL** = baseline L/S; **IS** / **OOS** = in-sample / out-of-sample, same calendars as §2.7).
+---
 
-#### 1) Signal optimization — key alphas (LP / SP + same alpha under baseline L/S)
+#### 2.7.1 Baseline Long-Short — Alpha Signal Screening
 
-| **Alpha** (WQ # or Step 0 EW) | **Sharpe** | **ANN return** | **Sharpe** | **ANN return** | **Sharpe** | **ANN return** | **Sharpe** | **ANN return** | **Sharpe** | **ANN return** | **Max DD** | **Sharpe** | **ANN return** | **Max DD** |
+40 alpha IDs were run through the full `BaselineStrategy` + `BaselineRisk` pipeline. Tables below are the complete comparison outputs; ★ marks the best Sharpe in each split.
+
+**In-Sample (2021-03-03 → 2024-12-31, 200 periods)**
+
+| alpha_id | Sharpe | Ann. Return | Ann. Vol | Max DD | Turnover Ann. |
+|----------|:------:|:-----------:|:--------:|:------:|:-------------:|
+| 6 | −0.068 | −0.74% | 7.18% | −13.15% | 1262% |
+| 10 | −0.120 | −1.07% | 6.96% | −15.53% | 1915% |
+| 14 | 0.227 | 2.00% | 11.82% | −9.50% | 4518% |
+| 16 | 0.298 | 2.17% | 8.37% | −16.37% | 1717% |
+| 18 | 0.129 | 0.75% | 8.62% | −15.40% | 1852% |
+| 19 | −0.293 | −1.64% | 5.19% | −16.47% | 1362% |
+| 20 | 0.102 | 0.49% | 7.87% | −14.45% | 1886% |
+| 22 | −0.452 | −2.89% | 6.07% | −16.46% | 2420% |
+| 23 | 0.432 | 3.08% | 7.73% | −17.81% | 1834% |
+| 24 | 0.119 | 0.64% | 8.27% | −15.39% | 1647% |
+| 26 | −0.073 | −0.80% | 7.34% | −15.66% | 2252% |
+| 30 | 0.411 | 2.91% | 7.71% | −15.34% | 2057% |
+| 31 | 0.254 | 1.82% | 8.57% | −15.59% | 2044% |
+| 32 | 0.684 | 7.43% | 11.44% | −13.05% | 2833% |
+| 34 | 0.290 | 2.12% | 8.50% | −15.21% | 1969% |
+| 37 | 0.088 | 0.37% | 6.75% | −16.14% | 1266% |
+| 40 | 0.032 | −0.07% | 8.08% | −15.21% | 1562% |
+| 44 | −0.197 | −1.74% | 7.47% | −17.51% | 2143% |
+| 51 | 0.111 | 0.53% | 7.01% | −16.80% | 1807% |
+| 53 | −0.086 | −0.97% | 7.78% | −16.46% | 1800% |
+| 54 | −0.240 | −1.72% | 6.39% | −17.08% | 1374% |
+| 57 | 0.352 | 2.44% | 7.67% | −15.68% | 2124% |
+| 61 | −0.110 | −1.17% | 7.85% | −17.69% | 1515% |
+| 64 | 0.290 | 2.33% | 9.53% | −16.83% | 1753% |
+| **66** ★ | **0.967** | **8.90%** | **9.26%** | **−12.83%** | 4535% |
+| 72 | 0.237 | 1.24% | 5.95% | −14.69% | 1240% |
+| 83 | 0.159 | 0.89% | 7.24% | −17.08% | 1950% |
+| 95 | 0.326 | 2.32% | 8.02% | −16.75% | 1509% |
+| 101 | 0.923 | 10.37% | 11.39% | −17.27% | 3134% |
+| 108 | 0.221 | 1.38% | 7.45% | −17.27% | 1731% |
+| 110 | 0.343 | 2.88% | 9.66% | −15.54% | 1434% |
+| 116 | 0.302 | 2.24% | 8.57% | −18.24% | 1274% |
+| 118 | 0.193 | 1.44% | 10.01% | −16.72% | 938% |
+| 123 | 0.026 | −0.20% | 9.42% | −21.03% | 1164% |
+| 125 | 0.228 | 1.74% | 9.57% | −13.32% | 1418% |
+| 127 | 0.368 | 3.16% | 9.73% | −16.04% | 1320% |
+| 128 | 0.609 | 6.60% | 11.60% | −13.89% | 3151% |
+| 130 | 0.283 | 2.37% | 10.11% | −17.32% | 1572% |
+| 135 | −0.170 | −2.47% | 11.08% | −18.84% | 1466% |
+| 136 | 0.244 | 2.54% | 14.75% | −13.29% | 1407% |
+
+**Out-of-Sample (2025-01-01 → 2026-03-01, 61 periods)**
+
+| alpha_id | Sharpe | Ann. Return | Ann. Vol | Max DD | Turnover Ann. |
+|----------|:------:|:-----------:|:--------:|:------:|:-------------:|
+| 6 | −0.362 | −4.37% | 10.76% | −12.80% | 3693% |
+| 10 | 1.090 | 11.58% | 10.57% | −6.90% | 4976% |
+| 14 | −1.681 | −9.97% | 6.13% | −13.90% | 1221% |
+| 16 | 1.019 | 9.29% | 9.13% | −6.35% | 4118% |
+| 18 | −0.000 | −0.46% | 9.67% | −8.67% | 4777% |
+| 19 | −0.618 | −5.66% | 8.80% | −11.16% | 3576% |
+| 20 | −0.535 | −4.66% | 8.30% | −11.64% | 4314% |
+| 22 | 0.644 | 5.79% | 9.43% | −6.51% | 6414% |
+| **23** ★ | **1.819** | **19.34%** | **10.00%** | **−6.47%** | 4787% |
+| 24 | −0.375 | −4.18% | 10.06% | −12.46% | 2864% |
+| 26 | −0.868 | −7.72% | 8.80% | −11.75% | 3902% |
+| 30 | −0.147 | −1.31% | 7.25% | −9.16% | 5092% |
+| 31 | 0.514 | 4.46% | 9.33% | −5.14% | 4635% |
+| 32 | 0.363 | 3.05% | 9.48% | −7.08% | 2993% |
+| 34 | 0.637 | 6.14% | 10.16% | −5.30% | 5551% |
+| 37 | 1.463 | 16.38% | 10.77% | −5.78% | 3923% |
+| 40 | −0.841 | −9.65% | 11.30% | −13.66% | 3645% |
+| 44 | −1.544 | −9.46% | 6.30% | −14.31% | 1508% |
+| 51 | 1.478 | 15.09% | 9.84% | −5.84% | 4305% |
+| 53 | 0.684 | 6.72% | 10.28% | −6.17% | 5033% |
+| 54 | 0.376 | 3.45% | 10.43% | −4.83% | 4970% |
+| 57 | 1.315 | 14.40% | 10.67% | −7.40% | 5425% |
+| 61 | 0.711 | 7.18% | 10.53% | −7.05% | 3668% |
+| 64 | −1.054 | −7.20% | 6.87% | −11.21% | 3100% |
+| 66 | −0.483 | −5.25% | 10.11% | −9.27% | 4542% |
+| 72 | −1.486 | −9.38% | 6.48% | −11.30% | 1476% |
+| 83 | 0.942 | 9.97% | 10.68% | −6.92% | 5407% |
+| 95 | 0.659 | 6.46% | 10.30% | −8.20% | 4208% |
+| 101 | −0.549 | −6.01% | 10.31% | −12.66% | 3996% |
+| 108 | −0.538 | −5.07% | 8.93% | −11.61% | 4123% |
+| 110 | −0.444 | −5.16% | 10.65% | −11.66% | 3240% |
+| 116 | −1.551 | −9.35% | 6.20% | −12.62% | 1532% |
+| 118 | 0.392 | 3.69% | 10.63% | −12.92% | 1707% |
+| 123 | −0.302 | −3.33% | 9.68% | −8.37% | 2176% |
+| 125 | −1.042 | −9.83% | 9.49% | −14.75% | 3393% |
+| 127 | −0.622 | −6.35% | 9.79% | −11.78% | 2477% |
+| 128 | −0.679 | −5.09% | 7.29% | −10.36% | 3513% |
+| 130 | −0.402 | −5.38% | 11.99% | −11.08% | 2603% |
+| 135 | 0.805 | 8.93% | 11.43% | −11.10% | 2696% |
+| 136 | 0.595 | 5.89% | 10.54% | −10.99% | 1912% |
+
+> **IS best — Alpha#66**: Sharpe 0.967, Ann. Return 8.90%, Max DD −12.83%, Total Return 38.56% (10,000 → 13,856), Win Rate 57.3%, CAPM α 7.37%, β 0.119. Artifacts: `backtests/baseline/no_trans_cost/in_sample/alpha/outputs/best_alpha_66/`
+>
+> **OOS best — Alpha#23**: Sharpe 1.819, Ann. Return 19.34%, Max DD −6.47%, Total Return 22.63% (10,000 → 12,263), Win Rate 61.7%, CAPM α 14.71%, β 0.227. Artifacts: `backtests/baseline/no_trans_cost/out_sample/alpha/outputs/best_alpha_23/`
+>
+> Notable OOS performers: Alpha#37 (Sharpe 1.463, 16.38%), Alpha#51 (1.478, 15.09%), Alpha#57 (1.315, 14.40%). The IS winner Alpha#66 does not generalize OOS (Sharpe −0.483), indicating IS overfitting risk for momentum-style alphas.
+
+---
+
+#### 2.7.2 Baseline Long-Short — ML Signal Screening
+
+All 5 ML signals (signal_id 1–5) were run through the same `BaselineStrategy` + `BaselineRisk` pipeline.
+
+**In-Sample (2021-03-03 → 2024-12-31, 200 periods)**
+
+| Signal | Sharpe | Ann. Return | Ann. Vol | Max DD | Turnover Ann. |
+|--------|:------:|:-----------:|:--------:|:------:|:-------------:|
+| **Signal 1** LightGBM_frs3 ★ | **0.601** | **5.09%** | 8.94% | −13.71% | 1571% |
+| Signal 2 Ensemble_RankAvg_frs1 | 0.330 | 2.17% | 7.31% | −16.72% | 1815% |
+| Signal 3 XGBoost_frs3 | 0.560 | 4.65% | 8.81% | −16.47% | 1830% |
+| Signal 4 PCA_Ridge_frs3 | 0.442 | 3.89% | 9.71% | −18.05% | 1675% |
+| Signal 5 MLP_frs2 | 0.247 | 1.61% | 7.66% | −14.06% | 1745% |
+
+**Out-of-Sample (2025-01-01 → 2026-03-01, 61 periods)**
+
+| Signal | Sharpe | Ann. Return | Ann. Vol | Max DD | Turnover Ann. |
+|--------|:------:|:-----------:|:--------:|:------:|:-------------:|
+| Signal 1 LightGBM_frs3 | −1.571 | −8.54% | 5.58% | −11.76% | 2487% |
+| **Signal 2** Ensemble_RankAvg_frs1 ★ | **0.862** | **10.24%** | 12.16% | −4.59% | 4633% |
+| Signal 3 XGBoost_frs3 | −0.731 | −4.79% | 6.44% | −10.33% | 2644% |
+| Signal 4 PCA_Ridge_frs3 | 0.267 | 2.47% | 11.57% | −7.98% | 3951% |
+| Signal 5 MLP_frs2 | −0.087 | −1.27% | 9.59% | −10.40% | 4758% |
+
+> **IS best — Signal 1** (LightGBM_frs3): Sharpe 0.601, Ann. Return 5.09%, Max DD −13.71%, CAPM α 6.04%, β −0.051.
+>
+> **OOS best — Signal 2** (Ensemble_RankAvg_frs1): Sharpe 0.862, Ann. Return 10.24%, Max DD −4.59%, CAPM α 6.76%, β 0.242.
+>
+> LightGBM_frs3 collapses OOS (Sharpe −1.571), while the rank-average ensemble is the only ML signal to remain consistently positive. FRS3-based single models generalize poorly; ensemble and FRS1 labels are more robust.
+
+---
+
+#### 2.7.3 Signal Optimization — Alpha Factors (LP / SP / BL)
+
+Key alpha IDs evaluated across all three allocator modes. **LP** = long softmax, **SP** = short softmax on negated scores, **BL** = `BaselineStrategy` + `BaselineRisk`.
+
+| Alpha | Sharpe | Ann Ret | Sharpe | Ann Ret | Sharpe | Ann Ret | Sharpe | Ann Ret | Sharpe | Ann Ret | Max DD | Sharpe | Ann Ret | Max DD |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| *backtest* | LP-IS | LP-IS | LP-OOS | LP-OOS | SP-IS | SP-IS | SP-OOS | SP-OOS | BL-IS | BL-IS | BL-IS | BL-OOS | BL-OOS | BL-OOS |
+| *Mode→* | LP-IS | LP-IS | LP-OOS | LP-OOS | SP-IS | SP-IS | SP-OOS | SP-OOS | BL-IS | BL-IS | BL-IS | BL-OOS | BL-OOS | BL-OOS |
 | **Step 0 EW** | 0.690 | 9.73% | 1.537 | 16.40% | −0.690 | −10.94% | −1.537 | −15.01% | — | — | — | — | — | — |
 | **#19** | 0.564 | 8.34% | 2.014 | 23.34% | −0.593 | −10.07% | −1.104 | −12.66% | −0.293 | −1.64% | −16.47% | −0.618 | −5.66% | −11.16% |
 | **#23** | 0.666 | 9.47% | 1.829 | 20.42% | −0.787 | −12.37% | −0.522 | −6.76% | 0.432 | 3.08% | −17.81% | **1.819** | **19.34%** | **−6.47%** |
@@ -199,38 +335,48 @@ NORMAL (200% gross)  ──[DD ≥ 10%]──►  LIGHT (100% gross)  ──[DD 
 | **#57** | 0.691 | 11.02% | **2.174** | **30.06%** | −0.559 | −10.42% | −1.136 | −12.23% | 0.352 | 2.44% | −15.68% | 1.315 | 14.40% | −7.40% |
 | **#66** | 0.744 | 10.84% | 1.532 | 16.91% | −0.630 | −10.13% | −1.475 | −14.52% | **0.967** | **8.90%** | **−12.83%** | −0.483 | −5.25% | −9.27% |
 
-> **Read across:** LP/SP come from the same weekly alpha factor columns, different allocator sign; BL is the market-neutral long-3 / short-3 book, so Sharpe profiles need not match LP. **#23** is OOS BL best; **#24** is IS LP best and IS SP “least bad”; **#57** is OOS LP best; **#66** is IS BL best.
+> LP/SP use the same alpha factor scores with different allocator signs; BL runs the full market-neutral book so profiles need not correlate. **#23** = OOS BL best; **#24** = IS LP best and IS SP “least bad”; **#57** = OOS LP best; **#66** = IS BL best.
 
-#### 2) Signal optimization — ML Step 1 — **long** softmax (long-only Step 1 grid)
+---
 
-| Split | Layer | Best | Sharpe | Ann. return |
+#### 2.7.4 Signal Optimization — ML Step 1
+
+**Long softmax (Step 1, `mode=long`)**
+
+| Split | Layer | Best | Sharpe | Ann. Return |
 |-------|-------|------|:------:|:-----------:|
 | IS | Step 0 EW | baseline | 0.690 | 9.73% |
 | IS | ML Step 1 | **Signal 5** MLP_frs2 | 0.705 | 9.98% |
 | OOS | Step 0 EW | baseline | 1.537 | 16.40% |
 | OOS | ML Step 1 | **Signal 2** Ensemble_RankAvg_frs1 | 1.730 | 19.12% |
 
-#### 3) Signal optimization — ML Step 1 — **short** softmax (short-only Step 1 grid, `mode=short`)
+**Short softmax (Step 1, `mode=short`)**
 
-All Sharpe ratios are **≤ 0** (short-only book on sector ETFs is structurally loss-making here); “best” = least negative Sharpe vs the same-split EW baseline.
+All Sharpe ratios are ≤ 0 — a pure short-only book on US sector ETFs is structurally loss-making in this sample. “Best” = least negative Sharpe.
 
-| Split | Layer | Best | Sharpe | Ann. return |
+| Split | Layer | Best | Sharpe | Ann. Return |
 |-------|-------|------|:------:|:-----------:|
 | IS | Step 0 EW | baseline | −0.690 | −10.94% |
 | IS | ML Step 1 | **Signal 5** MLP_frs2 | −0.673 | −10.75% |
 | OOS | Step 0 EW | baseline | −1.537 | −15.01% |
 | OOS | ML Step 1 | **Signal 2** Ensemble_RankAvg_frs1 | −1.330 | −13.06% |
 
-#### 4) Baseline long–short — alpha & ML (aggregate best picks)
+---
 
-| Suite | Split | Best pick | Sharpe | Ann. return | Max DD |
+#### 2.7.5 Best-Pick Summary
+
+| Suite | Split | Best Pick | Sharpe | Ann. Return | Max DD |
 |-------|-------|-----------|:------:|:-----------:|:------:|
-| Alpha (40 ids) | IS | **Alpha#66** | 0.967 | 8.90% | −12.83% |
-| Alpha (40 ids) | OOS | **Alpha#23** | 1.819 | 19.34% | −6.47% |
-| ML (signals 1–5) | IS | **Signal 1** LightGBM_frs3 | 0.601 | 5.09% | −13.71% |
-| ML (signals 1–5) | OOS | **Signal 2** Ensemble_RankAvg_frs1 | 0.862 | 10.24% | −4.59% |
+| BL — Alpha (40 ids) | IS | **Alpha#66** | 0.967 | 8.90% | −12.83% |
+| BL — Alpha (40 ids) | OOS | **Alpha#23** | 1.819 | 19.34% | −6.47% |
+| BL — ML (signals 1–5) | IS | **Signal 1** LightGBM_frs3 | 0.601 | 5.09% | −13.71% |
+| BL — ML (signals 1–5) | OOS | **Signal 2** Ensemble_RankAvg_frs1 | 0.862 | 10.24% | −4.59% |
+| LP — Alpha (signal-opt) | IS | **Alpha#24** | 1.122 | 21.38% | — |
+| LP — Alpha (signal-opt) | OOS | **Alpha#57** | 2.174 | 30.06% | — |
+| LP — ML Step 1 | IS | **Signal 5** MLP_frs2 | 0.705 | 9.98% | — |
+| LP — ML Step 1 | OOS | **Signal 2** Ensemble_RankAvg_frs1 | 1.730 | 19.12% | — |
 
-Per-alpha baseline L/S metrics are already in the **BL·** columns of the wide panel above.
+> **Key takeaways:** (1) Alpha#23 is the standout OOS baseline L/S signal — high Sharpe with shallow drawdown. (2) Ensemble_RankAvg_frs1 (Signal 2) is the most consistent ML signal across both the baseline L/S and the LP signal-opt framework OOS. (3) IS winners (Alpha#66, LightGBM) do not generalize — IS/OOS signal correlation is low, reinforcing the need for walk-forward validation in Step 2.
 
 ## 3. Current Progress Status
 
@@ -265,11 +411,12 @@ Per-alpha baseline L/S metrics are already in the **BL·** columns of the wide p
 
 ```
 LAB/
-├── docs/                              # Design documents (01–08)
+├── docs/                              # Design documents (AGENT.md + 00–04)
 ├── src/QuantLab/
 │   ├── alpha/                         # Alpha registration & compute
 │   ├── frs/                           # FRS registration & compute
 │   ├── signal/                        # Signal registration (incl. ML sub-module)
+│   │   └── ml/                        # ML signal implementations (signal_1–5)
 │   ├── backtest/
 │   │   ├── engine.py                  # Main simulation loop
 │   │   ├── quote_terminal.py          # Unified data access (anti-look-ahead)
@@ -280,10 +427,12 @@ LAB/
 │   └── utils/                         # db / data_loader / load_ml_input / config
 ├── backtests/
 │   ├── baseline/
-│   │   ├── in_sample/alpha/           # L/S alpha grid → summary.json
-│   │   ├── out_sample/alpha/
-│   │   ├── in_sample/ml_signal/
-│   │   └── out_sample/ml_signal/
+│   │   ├── no_trans_cost/             # zero-fee / zero-slippage runs
+│   │   │   ├── in_sample/alpha/       # L/S alpha grid → summary.json
+│   │   │   ├── out_sample/alpha/
+│   │   │   ├── in_sample/ml_signal/
+│   │   │   └── out_sample/ml_signal/
+│   │   └── trans_cost/                # friction-cost sensitivity runs (planned)
 │   └── signal_optimization/
 │       ├── in_sample/
 │       │   ├── long_only/alphas/ | long_only/step1/
@@ -291,8 +440,20 @@ LAB/
 │       └── out_sample/
 │           ├── long_only/alphas/ | long_only/step1/
 │           └── short_only/alphas/ | short_only/step1/
-└── scripts/
-    └── dataset_builder.ipynb          # DB build orchestration
+├── data/
+│   ├── processed/                     # data.csv (main input)
+│   └── raw/
+├── debrief/                           # Periodic research reports
+│   └── YYYYMMDD/report.md + report.html
+├── research/                          # Per-contributor research notes & archives
+│   ├── 20260426_Team_Early-Baseline/  # ARCHIVED: original prototype (model_dev + reports)
+│   ├── 20260426 _Simon_ML Infra/
+│   ├── 20260426_David_Alpha-signals/
+│   ├── 20260509_Simon_Signal_Infra/
+│   └── 20260513_Simon_Strategy/
+├── scripts/
+│   └── dataset_builder.ipynb          # DB build orchestration
+└── simon_test/                        # Personal scratch space
 ```
 
 ---
