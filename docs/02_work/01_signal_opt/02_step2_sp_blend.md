@@ -138,27 +138,43 @@ backtests/signal_optimization/01 blend/short power/outputs/
 
 ## 7. Results
 
-> Pending — run `backtests/signal_optimization/01 blend/short power/run.py`.
-
 ### 7.1 Optimised Weights
 
-| Alpha | Weight |
-|-------|:------:|
-| #23 | TBD |
-| #53 | TBD |
-| #31 | TBD |
-| #19 | TBD |
-| #57 | TBD |
+| Alpha | Weight | Note |
+|-------|:------:|------|
+| #53 | 38.71% | S-only in Step 1; dominant contributor when freed from LP constraint |
+| #57 | 37.53% | Top LP signal; carries meaningful short-side information |
+| #19 | 20.53% | Solid all-around contributor |
+| #31 | 2.37% | Near-zero — effectively excluded |
+| #23 | 0.86% | Near-zero — Step 1 best SP single signal nearly dropped |
+
+The optimiser concentrates weight on #53 and #57, together accounting for ~76% of
+the blend. #23 — the dominant single signal in Step 1 — is almost entirely ignored,
+mirroring the LP result where #57 collapsed to 0.34%.
 
 ### 7.2 Performance Summary
 
 | Configuration | IS-train Sharpe | IS-val Sharpe | OOS Sharpe | OOS Ann. Return | OOS Vol | OOS Max DD |
 |---------------|:---------------:|:-------------:|:----------:|:---------------:|:-------:|:----------:|
 | EW ETFs (Step 0) | — | — | −1.537 | — | — | — |
-| Single #23 (Step 1) | — | TBD | −0.522 | TBD | TBD | TBD |
-| EW blend (all 0.2) | — | TBD | TBD | TBD | TBD | TBD |
-| **Optimised blend** | TBD | TBD | TBD | TBD | TBD | TBD |
+| Single #23 (Step 1 screen.) | — | — | −0.522 | — | — | — |
+| Single #23 (this backtest) | — | −1.589 | −0.790 | −8.69% | 10.78% | −15.08% |
+| EW blend (all 0.2) | — | −1.678 | −0.693 | −8.03% | 11.19% | −16.12% |
+| **Optimised blend** | **−1.234** | **−1.523** | **−0.496** | **−6.34%** | **11.81%** | **−15.32%** |
+
+> Note: "Single #23 (this backtest)" uses `SiganlOptimizationStrategy(mode="short")` +
+> `BaselineRisk`, producing a slightly different Sharpe than the Step 1 screening value
+> (−0.790 vs −0.522). The gap may reflect BaselineRisk drawdown protection triggering
+> near the −15% max drawdown level.
 
 ### 7.3 Key Findings
 
-> To be filled after results are available.
+1. **Blend beats all baselines on OOS SP Sharpe.** Optimised blend (−0.496) > single #23 screen (−0.522) > EW blend (−0.693) > EW ETFs (−1.537). OOS Δ vs EW = +1.041, comparable to Step 1 best single signal.
+
+2. **#23 weight collapses to near-zero (0.86%).** Mirror of LP blend where #57 fell to 0.34%. The best Step 1 single signal is not the most useful blend component — #53 (S-only, previously constrained) and #57 together dominate at 76%.
+
+3. **IS-train Sharpe (−1.234) is weaker than OOS (−0.496).** The 2021–2023 regime was unfavourable for short signals (persistent bull market). The 2025–2026 OOS window provided better shorting opportunities.
+
+4. **Overfitting diagnostic: borderline pass.** IS-val (−1.523) degrades by 0.289 vs IS-train (−1.234), just below the 0.3 flag threshold. The optimised blend is accepted, but the margin is thin.
+
+5. **#53 (S-only) is the key unlocked contributor.** Excluded from L/S in Step 1 due to weak LP, it becomes the top weight (38.71%) once the LP constraint is lifted in SP-only optimisation — exactly the design intent of separating LP and SP pools.
