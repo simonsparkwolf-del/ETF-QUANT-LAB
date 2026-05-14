@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from QuantLab.backtest.schema.backtest import Action
+from QuantLab.backtest.schema.signal import Scores
 from QuantLab.backtest.strategy.basic import Strategy
 
 if TYPE_CHECKING:
@@ -115,8 +116,9 @@ class BaselineStrategy(Strategy):
 
     # ── Strategy interface ─────────────────────────────────────────────────
 
-    def on_ranking(self, ranking: OrderedDict[str, float]) -> list[Action]:
+    def on_ranking(self, scores: Scores) -> list[Action]:
         assert self.terminal is not None and self.account is not None
+        ranking = scores["long"]
         if not ranking:
             return []
 

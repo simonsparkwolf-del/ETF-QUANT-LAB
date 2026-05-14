@@ -91,12 +91,48 @@ Each `best_<signal>/` folder (and each individual run directory) contains:
 
 ---
 
-## Design 01 — (Next)
+## Design 01 — Dual-Signal L/S (Independent Alpha per Side)
 
-*Pending — to be defined after signal_opt Step 2 results.*
+**Status:** Complete. See `trading_opt/02_dual_signal_test.md`.
 
 | Component | Class | Key Parameters |
 |-----------|-------|----------------|
-| Signal | TBD | TBD |
-| Strategy | TBD | TBD |
-| Risk | TBD | TBD |
+| Signal | `LongShortAlphaSignal(long_alpha_id, short_alpha_id)` | Grid: `LONG_ALPHAS=(24,66,101,64)` × `SHORT_ALPHAS=(24,57,19,51,66)` |
+| Strategy | `DualSignalStrategy` | `n_long=3, n_short=3, stickiness_threshold=2` |
+| Risk | `BaselineRisk` | identical to Design 00 |
+
+**Motivation:** Step 1 IS screening shows #24 dominates both IS LP and IS SP. Full IS LP × IS SP grid tests whether asymmetric pairing outperforms symmetric `l24_s24` on IS Sharpe.  
+**IS-selected:** `l24_s66` (IS Sharpe 1.236, Ann Return 15.72%) — beats symmetric baseline `l24_s24` (0.213).  
+**OOS validation:** `l24_s66` collapses to −0.853 (rank 18/20). Catastrophic IS/OOS divergence. OOS best `l66_s24` (0.965) = same alphas with sides reversed. #24 as long fails entirely in 2025–2026; #66 long is robustly positive (all 5 `l66_*` pairs OOS > 0).
+
+---
+
+## Design 02 — Dual-Blend L/S (Step 2 Optimised Blends per Side)
+
+**Status:** Signal class implemented; backtest pending. See `trading_opt/03_dual_blend_signal_test.md`.
+
+| Component | Class | Key Parameters |
+|-----------|-------|----------------|
+| Signal | `LongShortBlendSignal(lp_weights, sp_weights)` | LP: Step 2 IS-correct blend weights (TBD)  SP: Step 2 IS-correct blend weights (TBD) |
+| Strategy | `DualSignalStrategy` | `n_long=3, n_short=3, stickiness_threshold=2` |
+| Risk | `BaselineRisk` | identical to Design 00/01 |
+
+**Motivation:** Step 2 LP/SP Bayesian blend optimisation produces side-specific weight vectors. Wiring both into the L/S strategy should compound both improvements.  
+**Target:** Beat IS-selected Design 01 best pair on IS Sharpe; OOS reported as validation.  
+**Result:** TBD — pending Step 2 re-run with IS-correct candidate pools.
+
+---
+
+## Design 03 — Joint L/S Blend (Step 3 Direct Optimisation)
+
+**Status:** Script and doc ready; backtest pending. See `signal_opt/03_step3_ls_blend.md`.
+
+| Component | Class | Key Parameters |
+|-----------|-------|----------------|
+| Signal | `LongShortBlendSignal(lp_weights, sp_weights)` | 10 weights jointly optimised on full L/S Sharpe |
+| Strategy | `DualSignalStrategy` | `n_long=3, n_short=3, stickiness_threshold=2` |
+| Risk | `BaselineRisk` | identical to Design 00/01/02 |
+
+**Motivation:** Design 02 proved that optimising LP/SP weights in isolation (on single-side objectives) does not generalise to the joint L/S strategy. Step 3 optimises all 10 weights simultaneously with the full L/S Sharpe as the objective — no gradient needed, TPE is a black-box sampler.  
+**Target:** Beat IS-selected Design 01 best pair on IS Sharpe.  
+**Result:** TBD — pending Step 2 re-run (Design 03 candidate pools derive from Step 2).

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 
+from QuantLab.backtest.schema.signal import Scores, symmetric
 from QuantLab.backtest.signal.basic import Signal
 
 
@@ -11,8 +12,7 @@ class OptimizationTestSignal(Signal):
     gets the same score ``1.0`` (equal weights after softmax).
     """
 
-    def analyze(self) -> OrderedDict[str, float]:
+    def analyze(self) -> Scores:
         assert self.terminal is not None
-        t = self.terminal.etfs()
-        tickers = sorted(t["ticker"].unique().tolist())
-        return OrderedDict((tk, 1.0) for tk in tickers)
+        tickers = sorted(self.terminal.etfs()["ticker"].unique().tolist())
+        return symmetric(OrderedDict((tk, 1.0) for tk in tickers))

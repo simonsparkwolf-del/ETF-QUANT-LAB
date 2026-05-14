@@ -4,14 +4,15 @@ import random
 from collections import OrderedDict
 
 from QuantLab.backtest.schema.backtest import Account, Action
+from QuantLab.backtest.schema.signal import Scores
 from QuantLab.backtest.strategy.basic import Strategy
 
 
 class DebugStrategy(Strategy):
-    def on_ranking(self, ranking: OrderedDict[str, float]) -> list[Action]:
+    def on_ranking(self, scores: Scores) -> list[Action]:
         assert self.terminal is not None and self.account is not None
         actions: list[Action] = []
-        tickers = list(ranking.keys())
+        tickers = list(scores["long"].keys())
         ticker = tickers[0]
         q = self.terminal.quote(ticker)
         price = float(q.loc["close"]) if not q.empty else 0.0

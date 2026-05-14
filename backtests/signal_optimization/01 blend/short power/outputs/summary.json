@@ -1,0 +1,31 @@
+{
+  "best_blend": {
+    "is_train_sharpe": -1.3070895057359344,
+    "is_val_sharpe": -1.6054449213919582,
+    "oos_sharpe": -0.8860298092455362,
+    "oos_annual_return": -0.08613373557070314,
+    "oos_annual_volatility": 0.09644615133442347,
+    "oos_max_drawdown": -0.15122242350273318
+  },
+  "equal_weight_blend": {
+    "is_val_sharpe": -1.610730408194267,
+    "oos_sharpe": -0.7602140645599016,
+    "oos_annual_return": -0.08677284184061085,
+    "oos_annual_volatility": 0.11125833283128404,
+    "oos_max_drawdown": -0.1583137574193988
+  },
+  "single_alpha_24": {
+    "is_val_sharpe": -0.6467346363490191,
+    "oos_sharpe": -0.7043818852926029,
+    "oos_annual_return": -0.08320881782010314,
+    "oos_annual_volatility": 0.11405115886896403,
+    "oos_max_drawdown": -0.1580700847003802
+  },
+  "best_weights": {
+    "24": 0.001472340429454437,
+    "57": 0.10624532809164462,
+    "19": 0.24132070431482855,
+    "51": 0.1457548315580265,
+    "66": 0.505206795606046
+  }
+}

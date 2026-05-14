@@ -16,6 +16,7 @@ dependencies = [
     "scikit-learn",
     "lightgbm",
     "xgboost",
+    "optuna",
 ]
 
 [tool.setuptools]
