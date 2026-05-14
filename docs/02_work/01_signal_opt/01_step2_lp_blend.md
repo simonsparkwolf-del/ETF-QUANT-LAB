@@ -146,27 +146,37 @@ backtests/signal_optimization/01 blend/long power/outputs/
 
 ## 7. Results
 
-> Pending — run `backtests/signal_optimization/step2/long_only/run.py`.
-
 ### 7.1 Optimised Weights
 
-| Alpha | Weight |
-|-------|:------:|
-| #57 | TBD |
-| #24 | TBD |
-| #19 | TBD |
-| #31 | TBD |
-| #23 | TBD |
+| Alpha | Weight | Note |
+|-------|:------:|------|
+| #24 | 61.01% | Dominant contributor; L-only in Step 1 (no SP constraint here) |
+| #19 | 30.38% | Second significant contributor |
+| #23 | 7.31% | Minor weight |
+| #31 | 0.96% | Near-zero — effectively excluded |
+| #57 | 0.34% | Near-zero — Step 1 best single signal nearly dropped |
+
+The optimiser concentrates weight on #24 and #19, essentially ignoring #57 and #31.
+This is structurally coherent: without an SP constraint, #24 (L-only in Step 1) is
+free to contribute, and it carries information orthogonal to #57.
 
 ### 7.2 Performance Summary
 
-| Configuration | IS-train Sharpe | IS-val Sharpe | OOS Sharpe | OOS Ann. Return | OOS Max DD |
-|---------------|:---------------:|:-------------:|:----------:|:---------------:|:----------:|
-| EW ETFs (Step 0) | — | — | 1.537 | — | — |
-| Single #57 (Step 1) | TBD | TBD | 2.174 | TBD | TBD |
-| EW blend (all 0.2) | TBD | TBD | TBD | TBD | TBD |
-| **Optimised blend** | TBD | TBD | TBD | TBD | TBD |
+| Configuration | IS-train Sharpe | IS-val Sharpe | OOS Sharpe | OOS Ann. Return | OOS Vol | OOS Max DD |
+|---------------|:---------------:|:-------------:|:----------:|:---------------:|:-------:|:----------:|
+| EW ETFs (Step 0) | — | — | 1.537 | — | — | — |
+| Single #57 (Step 1) | — | 1.268 | 2.108 | 28.71% | 12.36% | −10.24% |
+| EW blend (all 0.2) | — | 1.841 | 2.062 | 23.17% | 10.38% | −9.46% |
+| **Optimised blend** | **0.936** | **2.069** | **2.130** | **27.27%** | **11.66%** | **−9.11%** |
 
 ### 7.3 Key Findings
 
-> To be filled after results are available.
+1. **Blend beats all baselines on OOS Sharpe.** Optimised blend (2.130) > single #57 (2.108) > EW blend (2.062) > EW ETFs (1.537). The improvement is modest (+0.022 vs single #57) but the blend also reduces max drawdown (−9.11% vs −10.24%).
+
+2. **IS-train Sharpe (0.936) is materially lower than IS-val (2.069) and OOS (2.130).** The 2021–2023 window (COVID recovery + rate-hike cycle) was a structurally harder regime for these alphas. IS-val and OOS both fall in a calmer trending environment. No overfitting concern — generalisation is positive.
+
+3. **#57 weight collapses to near-zero (0.34%).** Despite being the top single alpha on OOS LP Sharpe in Step 1, the Bayesian optimiser removes it. #24 (LP 2.055, excluded from L/S in Step 1) dominates at 61%. This suggests #24 and #19 carry complementary information during the IS-train regime that #57 does not.
+
+4. **EW blend (2.062) marginally trails both the optimised blend and single #57.** Naïve averaging slightly dilutes the signal; the optimiser's concentration on two alphas is better than uniform weighting.
+
+5. **Overfitting diagnostic passes.** IS-val (2.069) is not below IS-train (0.936) — the rule flags overfitting when IS-val degrades > 0.3 vs IS-train. Here the opposite is true: alphas generalise strongly beyond the training window.

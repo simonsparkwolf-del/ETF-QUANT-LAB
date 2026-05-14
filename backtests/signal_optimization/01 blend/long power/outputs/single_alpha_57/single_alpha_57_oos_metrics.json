@@ -1,0 +1,17 @@
+{
+  "start_value": 10000.0,
+  "end_value": 13380.467794617127,
+  "total_return": 0.3380467794617126,
+  "annual_return": 0.28708864080104957,
+  "annual_volatility": 0.12360074743622704,
+  "sharpe": 2.1078427761550227,
+  "max_drawdown": -0.10241233902794411,
+  "turnover_avg_period": 0.5125589007195243,
+  "turnover_annualized": 26.653062837415263,
+  "win_rate": 0.6333333333333333,
+  "periods_per_year": 52,
+  "num_periods": 61,
+  "excess_return_annual_vs_spy": 0.10705243697706104,
+  "capm_alpha_annual_vs_spy": 0.15048010239781479,
+  "capm_beta_vs_spy": 0.717043991004278
+}
