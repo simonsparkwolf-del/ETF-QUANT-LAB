@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from QuantLab.backtest.schema.signal import Scores, symmetric
 from QuantLab.backtest.signal.basic import Signal
 
 if TYPE_CHECKING:
@@ -46,16 +47,13 @@ class MLBacktestSignal(Signal):
 
     # ── per-bar ────────────────────────────────────────────────────────────
 
-    def analyze(self) -> OrderedDict[str, float]:
-        assert self.terminal is not None 
-        today = self.terminal.day
-        etfs = self.terminal.etfs()
+    def analyze(self) -> Scores:
+        assert self.terminal is not None
         signal_name = f"signal_{self._signal_id}"
-        signals = self.terminal.signals()
-        signals = signals[["ticker",signal_name ]]
+        signals = self.terminal.signals()[["ticker", signal_name]]
         tickers = sorted(signals["ticker"].unique().tolist())
         scores: dict[str, float] = {}
         for ticker in tickers:
-            row = signals.loc[signals["ticker"]==ticker,signal_name]
+            row = signals.loc[signals["ticker"] == ticker, signal_name]
             scores[ticker] = float(row.iloc[0]) if not row.empty else 0.0
-        return OrderedDict(scores)
+        return symmetric(OrderedDict(scores))

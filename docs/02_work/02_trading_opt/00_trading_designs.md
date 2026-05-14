@@ -91,12 +91,15 @@ Each `best_<signal>/` folder (and each individual run directory) contains:
 
 ---
 
-## Design 01 — (Next)
+## Design 01 — Dual-Signal L/S (Independent Alpha per Side)
 
-*Pending — to be defined after signal_opt Step 2 results.*
+**Status:** Grid defined, backtest pending. See `trading_opt/02_dual_signal_test.md`.
 
 | Component | Class | Key Parameters |
 |-----------|-------|----------------|
-| Signal | TBD | TBD |
-| Strategy | TBD | TBD |
-| Risk | TBD | TBD |
+| Signal | `LongShortAlphaSignal(long_alpha_id, short_alpha_id)` | Grid: `LONG_ALPHAS=(57,19,31,23)` × `SHORT_ALPHAS=(23,53,31,19,57)` |
+| Strategy | `DualSignalStrategy` | `n_long=3, n_short=3, stickiness_threshold=2` |
+| Risk | `BaselineRisk` | identical to Design 00 |
+
+**Motivation:** Step 1 OOS screening shows best LP alpha (#57, +0.637) ≠ best SP alpha (#23, +1.015). Splitting rankings per side should exceed the OOS Sharpe 1.819 ceiling of Design 00.  
+**Target:** OOS Sharpe > **1.819** (Alpha#23 single-signal baseline).

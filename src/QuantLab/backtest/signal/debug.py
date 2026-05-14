@@ -2,21 +2,17 @@ from __future__ import annotations
 
 import random
 from collections import OrderedDict
-from typing import TYPE_CHECKING
 
+from QuantLab.backtest.schema.signal import Scores, symmetric
 from QuantLab.backtest.signal.basic import Signal
-
-if TYPE_CHECKING:
-    pass
 
 
 class DebugSignal(Signal):
-    def analyze(self) -> OrderedDict[str, float]:
+    def analyze(self) -> Scores:
         assert self.terminal is not None
-        t = self.terminal.etfs()
-        tickers = t["ticker"].unique().tolist()
+        tickers = self.terminal.etfs()["ticker"].unique().tolist()
         random.shuffle(tickers)
-        ranking: OrderedDict[str, float] = OrderedDict()
-        for ticker in tickers:
-            ranking[ticker] = random.random()
-        return ranking
+        ranking: OrderedDict[str, float] = OrderedDict(
+            (ticker, random.random()) for ticker in tickers
+        )
+        return symmetric(ranking)

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections import OrderedDict
 from typing import TYPE_CHECKING
 
 from QuantLab.backtest.schema.backtest import Account, Action
@@ -13,6 +12,7 @@ from QuantLab.backtest.schema.risk import (
     RiskAction,
     YesTrade,
 )
+from QuantLab.backtest.schema.signal import Scores
 
 if TYPE_CHECKING:
     from QuantLab.backtest.quote_terminal import QuoteTerminal
@@ -231,8 +231,14 @@ class Strategy(ABC):
         return out
 
     @abstractmethod
-    def on_ranking(self, ranking: OrderedDict[str, float]) -> list[Action]:
-        """Turn signal ranking into actions."""
+    def on_ranking(self, scores: Scores) -> list[Action]:
+        """Turn signal scores into actions.
+
+        ``scores["long"]`` and ``scores["short"]`` each map ticker → float.
+        Single-head signals publish the same dict under both keys; dual-head
+        signals publish independent dicts.  Strategies consume whichever
+        key(s) they need.
+        """
 
     @abstractmethod
     def on_holding(self) -> list[Action]:

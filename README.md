@@ -43,3 +43,4 @@ Whenever run your code, remember only in venv.
 5. May 9th — Backtest engine ready.
 6. May 11th — Data infrastructure and backtest engine completed.
 7. May 13th — Signal optimization Step 1 + Baseline L/S screening completed (IS + OOS).
+8. May 14th — Design 01 (Dual-Signal L/S) completed: IS + OOS grid + transaction cost validation.

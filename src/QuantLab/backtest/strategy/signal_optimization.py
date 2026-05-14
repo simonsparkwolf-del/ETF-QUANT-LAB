@@ -5,6 +5,7 @@ from collections import OrderedDict
 from typing import Literal
 
 from QuantLab.backtest.schema.backtest import Action
+from QuantLab.backtest.schema.signal import Scores
 from QuantLab.backtest.strategy.basic import Strategy
 
 # ``Account.on_trade`` uses strict ``cash < need``; float noise on last leg can differ by ~1e-13.
@@ -224,10 +225,10 @@ class SiganlOptimizationStrategy(Strategy):
 
     # ── Strategy interface ─────────────────────────────────────────────────
 
-    def on_ranking(self, ranking: OrderedDict[str, float]) -> list[Action]:
+    def on_ranking(self, scores: Scores) -> list[Action]:
         if self.mode == "short":
-            return self._on_ranking_short(ranking)
-        return self._on_ranking_long(ranking)
+            return self._on_ranking_short(scores["short"])
+        return self._on_ranking_long(scores["long"])
 
     def on_holding(self) -> list[Action]:
         return []

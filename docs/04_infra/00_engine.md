@@ -35,13 +35,12 @@ This engine deliberately splits “what to trade”, “how to trade”, and “
 into three modules. The boundaries are:
 
 - **Signal (`Signal`) — *What to trade***  
-Produces a **ranking / scores** for the universe at `terminal.day`. It should be a pure data+math
-component: it reads from `QuoteTerminal`, and outputs an `OrderedDict[ticker -> score]`. It should
-not place orders, mutate the account, or enforce risk constraints.
+Produces a **`Scores` dict** for the universe at `terminal.day`. It should be a pure data+math
+component: it reads from `QuoteTerminal`, and outputs `{“long”: OrderedDict[ticker, score], “short”: OrderedDict[ticker, score]}`. It should not place orders, mutate the account, or enforce risk constraints. Single-head signals wrap their scores with `symmetric()`; dual-head signals (`LongShortAlphaSignal`) return independent dicts per side.
 - **Strategy (`Strategy`) — *How to trade***  
-Converts a ranking into **intent**: a list of `Action`s (and optionally additional holding
+Converts scores into **intent**: a list of `Action`s (and optionally additional holding
 adjustments via `on_holding`). Strategy owns position sizing and rebalancing logic, and may read
-the account state. It should not directly “block” trades for risk reasons; it proposes actions.
+the account state. It picks which score key(s) to consume — `scores[“long”]`, `scores[“short”]`, or both. It should not directly “block” trades for risk reasons; it proposes actions.
 - **Risk (`Risk`) — *Whether we are allowed to trade***  
 Acts as the final gatekeeper. It receives proposed actions and can **filter, clamp, or transform**
 them (e.g. max position, max turnover, leverage limits, no-trade lists). Risk should be the only
@@ -285,38 +284,47 @@ All three must follow the same alignment rule:
 ```python
 from collections import OrderedDict
 
+from QuantLab.backtest.schema.signal import Scores, symmetric
 from QuantLab.backtest.signal.basic import Signal
 
 
 class MySignal(Signal):
-    def analyze(self) -> OrderedDict[str, float]:
+    def analyze(self) -> Scores:
         assert self.terminal is not None
 
-        # Cross-section for today
-        xs = self.terminal.today_etfs()
-        tickers = xs["ticker"].unique().tolist()
+        tickers = self.terminal.etfs()["ticker"].unique().tolist()
 
         # Example: equal scores (replace with your own logic)
-        ranking: OrderedDict[str, float] = OrderedDict()
-        for t in tickers:
-            ranking[t] = 0.0
-        return ranking
+        scores: OrderedDict[str, float] = OrderedDict((t, 0.0) for t in tickers)
+        # symmetric() publishes the same dict under both "long" and "short" keys.
+        return symmetric(scores)
+```
+
+For a dual-head signal that uses different scores per side:
+
+```python
+class MyDualSignal(Signal):
+    def analyze(self) -> Scores:
+        assert self.terminal is not None
+        long_scores  = OrderedDict(...)   # higher = better long candidate
+        short_scores = OrderedDict(...)   # lower  = better short candidate
+        return {"long": long_scores, "short": short_scores}
 ```
 
 #### Strategy: minimal template
 
 ```python
-from collections import OrderedDict
-
 from QuantLab.backtest.schema.backtest import Action
+from QuantLab.backtest.schema.signal import Scores
 from QuantLab.backtest.strategy.basic import Strategy
 
 
 class MyStrategy(Strategy):
-    def on_ranking(self, ranking: OrderedDict[str, float]) -> list[Action]:
+    def on_ranking(self, scores: Scores) -> list[Action]:
         assert self.terminal is not None and self.account is not None
 
-        # Example: buy the top ticker with 1% cash
+        # Consume the long-side scores (use scores["short"] for short ranking).
+        ranking = scores["long"]
         tickers = list(ranking.keys())
         if not tickers:
             return []
@@ -340,8 +348,6 @@ class MyStrategy(Strategy):
         ]
 
     def on_holding(self) -> list[Action]:
-        assert self.terminal is not None and self.account is not None
-        # Example: no rebalancing logic
         return []
 ```
 

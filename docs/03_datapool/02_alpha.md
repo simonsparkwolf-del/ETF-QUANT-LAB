@@ -2,7 +2,7 @@
 
 Two groups of alpha factors are available in `weekly_alpha`: **WQ101** (formulaic alphas, IDs 1–101) and **Andy** (custom derived factors, IDs 108–137). All factors output a cross-sectional score per ETF per week via `AlphaBacktestSignal(alpha_id)`.
 
-Screening results (IC, LP/SP Sharpe) → `02_work/01_signal_opt/01_step1_screening.md`
+Screening results (IC, LP/SP Sharpe) → `02_work/01_signal_opt/00_step1_screening.md`
 
 ---
 
@@ -618,4 +618,4 @@ Screening results (IC, LP/SP Sharpe) → `02_work/01_signal_opt/01_step1_screeni
 | 136 | ext_corrspy_neg_26w | Negated corr with SPY | 26 w |
 | 137 | ext_corrspy_neg_52w | Negated corr with SPY | 52 w |
 
-**LP/SP screening results** → `02_work/01_signal_opt/01_step1_screening.md`
+**LP/SP screening results** → `02_work/01_signal_opt/00_step1_screening.md`

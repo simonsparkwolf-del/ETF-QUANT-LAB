@@ -6,6 +6,7 @@ from collections import OrderedDict
 
 import pandas as pd
 
+from QuantLab.backtest.schema.signal import Scores, symmetric
 from QuantLab.backtest.signal.basic import Signal
 
 
@@ -16,14 +17,14 @@ class AlphaBacktestSignal(Signal):
         super().__init__(f"alpha_{alpha_id}")
         self._alpha_id = int(alpha_id)
 
-    def analyze(self) -> OrderedDict[str, float]:
+    def analyze(self) -> Scores:
         assert self.terminal is not None
         col = f"alpha_{self._alpha_id}"
         tickers = sorted(self.terminal.etfs()["ticker"].unique().tolist())
 
         df = self.terminal.alphas(alpha_ids=(self._alpha_id,))
         if df.empty or col not in df.columns:
-            return OrderedDict((t, 0.0) for t in tickers)
+            return symmetric(OrderedDict((t, 0.0) for t in tickers))
 
         indexed = df.set_index("ticker")[col]
         scores: dict[str, float] = {}
@@ -33,4 +34,4 @@ class AlphaBacktestSignal(Signal):
                 scores[t] = 0.0 if pd.isna(val) else float(val)
             else:
                 scores[t] = 0.0
-        return OrderedDict(sorted(scores.items()))
+        return symmetric(OrderedDict(sorted(scores.items())))
