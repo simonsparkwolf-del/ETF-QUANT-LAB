@@ -134,6 +134,7 @@ Ranked by OOS Sharpe. IS-selected = chosen by IS criterion only; OOS = holdout n
 | ✅ | Re-run Step 2 LP/SP blend with IS-correct pools | IS pools fixed | **Done** |
 | ✅ | Re-run Step 3 joint L/S blend | IS pools fixed | **Done** |
 | ✅ | Design 02 — subsumed by Design 01 result | Step 2 done | **N/A** |
-| ⏳ **High** | **Trans cost sensitivity** — run Design 01 key OOS pairs (`l66_s24`, `l66_s57`, `l24_s66`) at 2 bps + 0.3% p.a. borrow | Design 01 done | Pending |
+| ⏳ **High** | **Design 04 — IC-Driven Dynamic Allocation** — each period selects best-IC alpha from IS pool per side; total exposure ∝ IC; softmax within-side sizing. 3 params: `ic_lookback_n`, `τ_L`, `τ_S`. Stickiness released. See `trading_opt/04_dynamic_allocation_test.md`. | Design 01 done | **In design** |
+| ⏳ High | **Trans cost sensitivity** — run Design 01 key OOS pairs (`l66_s24`, `l66_s57`) at 2 bps + 0.3% p.a. borrow | Design 01 done | Pending |
 | ⏳ Medium | **Strategy/risk parameter tuning** — `n_long/n_short` (2/4), `stickiness_threshold` (1/3), DD thresholds | Design 01 done | Pending |
 | ⏳ Low | Liquidity filter (min avg daily volume) | — | Pending |
