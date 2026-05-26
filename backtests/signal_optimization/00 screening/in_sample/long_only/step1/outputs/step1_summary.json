@@ -1,6 +1,6 @@
 {
-  "best_signal_id": 5,
-  "best_signal_label": "MLP_frs2",
+  "best_signal_id": 6,
+  "best_signal_label": "RF_frs4",
   "all_metrics": {
     "0": {
       "start_value": 10000.000000000002,
@@ -103,6 +103,23 @@
       "excess_return_annual_vs_spy": -0.025880409963518227,
       "capm_alpha_annual_vs_spy": -0.010235842161163142,
       "capm_beta_vs_spy": 0.8820515930385371
+    },
+    "6": {
+      "start_value": 10000.0,
+      "end_value": 12203.69068467269,
+      "total_return": 0.220369068467269,
+      "annual_return": 0.0534179475352905,
+      "annual_volatility": 0.07299804593414806,
+      "sharpe": 0.7496452548385976,
+      "max_drawdown": -0.09334269457381361,
+      "turnover_avg_period": 0.005070144753470443,
+      "turnover_annualized": 0.263647527180463,
+      "win_rate": 0.5897435897435898,
+      "periods_per_year": 52,
+      "num_periods": 200,
+      "excess_return_annual_vs_spy": -0.07791643799325539,
+      "capm_alpha_annual_vs_spy": 0.028102228294949756,
+      "capm_beta_vs_spy": 0.2006980982248514
     }
   }
 }

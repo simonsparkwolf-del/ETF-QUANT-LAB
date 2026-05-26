@@ -43,6 +43,12 @@ ASSET_CATALOG: dict[str, dict] = {
     # Macro / risk indices
     "VIX":      {"security_name": "VIX Index",      "category": "Index"},
     "USGG10YR": {"security_name": "USGG10YR Index", "category": "Index"},
+    # FRED macro series (close-only; added by scripts/merge_fred_to_csv.py)
+    "T10Y2Y":        {"security_name": "T10Y2Y Index",        "category": "Macro"},
+    "BAMLH0A0HYM2":  {"security_name": "BAMLH0A0HYM2 Index",  "category": "Macro"},
+    "DTWEXBGS":      {"security_name": "DTWEXBGS Index",      "category": "Macro"},
+    "DCOILWTICO":    {"security_name": "DCOILWTICO Index",    "category": "Macro"},
+    "T10YIE":        {"security_name": "T10YIE Index",        "category": "Macro"},
 }
 
 _SCHEMA = """
@@ -147,18 +153,18 @@ def seed_assets(conn: sqlite3.Connection) -> None:
     Populate the asset table from ASSET_CATALOG.
     Replaces all existing rows on each call.
     """
-    import pandas as pd
-
     rows = [
         {"ticker": ticker, **meta}
         for ticker, meta in ASSET_CATALOG.items()
     ]
-    asset_df = pd.DataFrame(rows)[["ticker", "security_name", "category"]]
-    conn.execute("DELETE FROM asset")
-    asset_df.to_sql("asset", conn, if_exists="append", index=False)
+    conn.executemany(
+        "INSERT OR IGNORE INTO asset (ticker, security_name, category) VALUES (?, ?, ?)",
+        [(r["ticker"], r["security_name"], r["category"]) for r in rows],
+    )
     conn.commit()
 
     etf_n   = sum(1 for m in ASSET_CATALOG.values() if m["category"] == "ETF")
     bench_n = sum(1 for m in ASSET_CATALOG.values() if m["category"] == "Benchmark")
     idx_n   = sum(1 for m in ASSET_CATALOG.values() if m["category"] == "Index")
-    print(f"Assets seeded: {etf_n} ETF, {bench_n} Benchmark, {idx_n} Index → {len(rows)} total")
+    macro_n = sum(1 for m in ASSET_CATALOG.values() if m["category"] == "Macro")
+    print(f"Assets seeded: {etf_n} ETF, {bench_n} Benchmark, {idx_n} Index, {macro_n} Macro → {len(rows)} total")

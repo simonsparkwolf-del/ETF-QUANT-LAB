@@ -1,6 +1,6 @@
 # QuantLab Project — Architecture & Progress Report
 
-**Date**: 2026-05-13 | **Branch**: `feature-infra`
+**Date**: 2026-05-26 | **Branch**: `feature-infra`
 
 ---
 
@@ -9,18 +9,22 @@
 **Viewing convention (bottom → top):** read the stack **from the bottom row upward**. **L1** = foundation (raw files → DB); **L5** = consumer (strategies). Layers L2–L4 are the intermediate stack in order.
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│ L5  Strategy Layer                                               │
-│     Baseline L/S  │  Signal optimization (long / short)          │
-├──────────────────────────────────────────────────────────────────┤
-│ L4  Backtest Engine — BacktestEngine / QuoteTerminal / Analyzer  │
-├──────────────────────────────────────────────────────────────────┤
-│ L3  Signal Layer — ML (signal_id 1–5) │ Alpha (82 factors)       │
-├──────────────────────────────────────────────────────────────────┤
-│ L2  Data Layer — datapool.db: bars / alpha / frs / signal        │
-├──────────────────────────────────────────────────────────────────┤
-│ L1  Raw Data Layer — Google Drive → data/processed/data.csv      │
-└──────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│ L5  Strategy Layer                                                  │
+│   Signal-Opt  LP/SP softmax  Steps 0→1 ✓  Step 2 blend (pending)  │
+│   L/S Design  D00 ✓  D01 ✓  D02 blend (pending)  D03 (planned)    │
+├─────────────────────────────────────────────────────────────────────┤
+│ L4  Backtest Engine                                                 │
+│   BacktestEngine · QuoteTerminal · BacktestAnalyzer                 │
+│   Strategy: BaselineStrategy / DualSignalStrategy                   │
+│   Risk:     BaselineRisk (3-state DD machine)                       │
+├─────────────────────────────────────────────────────────────────────┤
+│ L3  Signal Layer — ML (signal_id 1–6)  │  Alpha (82 factors)       │
+├─────────────────────────────────────────────────────────────────────┤
+│ L2  Data Layer — datapool.db: bars / alpha / frs / signal          │
+├─────────────────────────────────────────────────────────────────────┤
+│ L1  Raw Data — data/processed/data.csv  +  FRED macro (×5)         │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -31,7 +35,7 @@
 
 **Docs**: `docs/03_datapool/00_database.md`
 
-**Universe**: 11 SPDR Sector ETFs (XLB, XLC, XLE, XLF, XLI, XLK, XLP, XLU, XLV, XLRE, XLY) + SPY/SPX/VIX/US10Y benchmark series. Data is ingested from Google Drive into `data/processed/data.csv`, then pushed into `datapool.db` (SQLite) via `scripts/dataset_builder.ipynb`.
+**Universe**: 11 SPDR Sector ETFs (XLB, XLC, XLE, XLF, XLI, XLK, XLP, XLU, XLV, XLRE, XLY) + SPY/SPX/VIX/US10Y benchmark series + 5 FRED Macro series (T10Y2Y, BAMLH0A0HYM2, DTWEXBGS, DCOILWTICO, T10YIE). Data is ingested from Google Drive into `data/processed/data.csv` (FRED columns appended via `scripts/trivial/merge_fred_to_csv.py`), then pushed into `datapool.db` (SQLite) via `scripts/dataset_builder.ipynb`.
 
 **Database schema** (key tables):
 
@@ -75,37 +79,53 @@ The project also defines **custom alphas (alpha_id 108–136)**, including `alph
 
 ### 2.3 Trading architecture
 
-**Docs**: `docs/03_datapool/01_signal.md` | **Code**: `src/QuantLab/signal/`. The figure below shows the **SIGNAL pool** layer before **ranking score** (weekly per-ETF score used for ranking).
-
-Pipeline: **Data Pool** feeds **ML model module** and **Traditional quant signals**; their outputs (and other registered channels) live in the **SIGNAL pool** (e.g. `weekly_signal` in `datapool.db`). Each week those inputs are turned into a **ranking score** (cross-sectional score per ETF); the **Trading module** consumes the ranking, applies risk/strategy rules, and the **Backtest Engine** simulates fills.
+**Docs**: `docs/03_datapool/01_signal.md` | **Code**: `src/QuantLab/signal/`. The diagram below shows the full execution chain from raw data through to performance output.
 
 ```
-Data Pool: bars + alpha pool + additional data
-        │
-        ├─────────────────────────────┐
-        ▼                             ▼
-   ML model module           Traditional quant signals
-        │                             │
-        └─────────────┬───────────────┘
-                      ▼
-                   SIGNAL pool
-                      ▼
-                Ranking score
-                      ▼
-             Trading module
-                      ▼
-           Backtest Engine
+data.csv + FRED macro (×5)          research/*/walk_forward_predictions.csv
+           │                                        │
+           ▼  dataset_builder.ipynb                 │ (signal_6.py ffill align)
+      datapool.db                                   │
+  weekly_bar · weekly_alpha · weekly_frs            │
+           │                                        │
+           ├──────────────────────────┐             │
+           ▼                          ▼             │
+  ML signals (signal_id 1–6) ←───────┘   Alpha factors (alpha_id 1–136)
+           └──────────────┬────────────────────────┘
+                          ▼
+                    weekly_signal
+                    (SIGNAL pool)
+                          │
+            ┌─────────────┴─────────────┐
+            ▼                           ▼
+   Signal-Opt track              L/S Design track
+   LP/SP softmax                 D00  Baseline ✓
+   Step 0 EW ✓                   D01  Dual-Signal ✓
+   Step 1 grid ✓                 D02  Dual-Blend (pending)
+   Step 2 blend (pending)        D03  Joint Blend (planned)
+   Step 3 NN (planned)
+            └─────────────┬─────────────┘
+                          ▼
+              Strategy · Risk (BaselineRisk)
+              (position intent → DD filter → exposure scale)
+                          ▼
+          BacktestEngine + QuoteTerminal
+          (weekly fills · NAV · anti-look-ahead)
+                          ▼
+               BacktestAnalyzer
+          Sharpe · Ann Return · Max DD · CAPM · NAV panel
 ```
 
-Five ML signals are currently trained and stored in the **SIGNAL pool** (`weekly_signal`, signal_id 1–5):
+Six ML signals are currently trained and stored in the **SIGNAL pool** (`weekly_signal`, signal_id 1–6):
 
-| signal_id | Model | Label |
-|-----------|-------|-------|
-| 1 | LightGBM | FRS3 |
-| 2 | Ensemble (Rank Avg) | FRS1 |
-| 3 | XGBoost | FRS3 |
-| 4 | PCA + Ridge | FRS3 |
-| 5 | MLP | FRS2 |
+| signal_id | Model | Label | OOS IC (weekly) |
+|-----------|-------|-------|-----------------|
+| 1 | LightGBM | FRS3 | — |
+| 2 | Ensemble (Rank Avg) | FRS1 | — |
+| 3 | XGBoost | FRS3 | — |
+| 4 | PCA + Ridge | FRS3 | — |
+| 5 | MLP | FRS2 | — |
+| 6 | RF_tuned (daily panel, quarterly refit) | frs_4 proxy | 0.033 (IC-IR 0.077) |
 
 ---
 
@@ -387,6 +407,8 @@ All Sharpe ratios are ≤ 0 — a pure short-only book on US sector ETFs is stru
 | Data pipeline & `datapool.db` | ✅ Complete | End-to-end pipeline from CSV to all DB tables |
 | Alpha pool (82 + custom) | ✅ Complete | IC computed, custom alphas (108–136) including `alpha_110` |
 | ML signals (signal_id 1–5) | ✅ Complete | Trained and stored in `weekly_signal` |
+| Signal 6 — RF_tuned (signal_id 6) | ✅ Complete | Daily panel RF; walk-forward predictions injected via `signal/ml/signal_6.py`; OOS weekly IC 0.033 |
+| FRED Macro data integration | ✅ Complete | 5 FRED series appended to `data.csv`; Macro tickers in `asset` table and `daily_bar`/`weekly_bar` |
 | Backtest engine | ✅ Complete | `QuoteTerminal` / `BacktestEngine` / `BacktestAnalyzer` |
 | Signal Opt. Step 0 (equal-weight) | ✅ Complete | Long/short softmax EW baselines (IS/OOS) |
 | Signal Opt. alpha screening | ✅ Complete | 40 alphas × long-only & short-only × IS/OOS |
@@ -412,48 +434,97 @@ All Sharpe ratios are ≤ 0 — a pure short-only book on US sector ETFs is stru
 ```
 LAB/
 ├── docs/                              # Design documents (AGENT.md + 00–04)
+│   ├── 02_work/
+│   │   ├── 01_signal_mining/          # Signal research (Signal06_RF.md)
+│   │   ├── 02_signal_opt/             # Step 1–4 signal optimisation docs
+│   │   └── 03_trading_opt/            # L/S strategy design docs (D00–D03)
+│   ├── 03_datapool/                   # DB schema, signal/alpha/frs pool docs
+│   └── 04_infra/                      # Engine, risk, strategy, signal module docs
+│
 ├── src/QuantLab/
 │   ├── alpha/                         # Alpha registration & compute
 │   ├── frs/                           # FRS registration & compute
-│   ├── signal/                        # Signal registration (incl. ML sub-module)
-│   │   └── ml/                        # ML signal implementations (signal_1–5)
+│   ├── signal/
+│   │   ├── signal_metrics.py          # Non-ML signal decorators
+│   │   ├── compute_signal.py          # Orchestration — incremental insert
+│   │   └── ml/                        # ML signal implementations
+│   │       ├── signal_1.py … signal_6.py
+│   │       ├── utils/                 # Shared ML utilities
+│   │       └── weights/               # Saved model weights / params
 │   ├── backtest/
-│   │   ├── engine.py                  # Main simulation loop
+│   │   ├── engine.py                  # Simulation loop
 │   │   ├── quote_terminal.py          # Unified data access (anti-look-ahead)
-│   │   ├── analyzer.py                # Metrics & visualization
-│   │   ├── signal/                    # AlphaBacktestSignal, MLBacktestSignal, etc.
-│   │   ├── strategy/                  # SiganlOptimizationStrategy, BaselineStrategy
-│   │   └── risk/                      # BaselineRisk, DebugRisk
+│   │   ├── analyzer.py                # Metrics & visualisation
+│   │   ├── exchange.py                # Fill simulation
+│   │   ├── trader.py
+│   │   ├── signal/                    # Signal adapters
+│   │   │   ├── ml_backtest_signal.py  # MLBacktestSignal
+│   │   │   ├── dual_head_alpha_signal.py
+│   │   │   ├── dual_blend_signal.py
+│   │   │   └── signal_blend.py
+│   │   ├── strategy/
+│   │   │   ├── baseline.py            # BaselineStrategy (D00)
+│   │   │   ├── asymmetric_ls.py       # DualSignalStrategy (D01)
+│   │   │   └── signal_optimization.py # SignalOptimizationStrategy
+│   │   ├── risk/
+│   │   │   └── baseline.py            # BaselineRisk — 3-state DD machine
+│   │   └── schema/                    # Dataclasses / config schemas
 │   └── utils/                         # db / data_loader / load_ml_input / config
+│
 ├── backtests/
-│   ├── baseline/
-│   │   ├── no_trans_cost/             # zero-fee / zero-slippage runs
-│   │   │   ├── in_sample/alpha/       # L/S alpha grid → summary.json
+│   ├── baseline/                      # Design 00 — Baseline L/S ✓
+│   │   ├── no_trans_cost/             # IS: 2021-03-03→2024-12-31  OOS: 2025-01-01→2026-03-01
+│   │   │   ├── in_sample/alpha/       # 40-alpha IS grid → summary.json + best_alpha_<id>/
+│   │   │   ├── in_sample/ml_signal/   # 5 ML signals IS
 │   │   │   ├── out_sample/alpha/
-│   │   │   ├── in_sample/ml_signal/
 │   │   │   └── out_sample/ml_signal/
-│   │   └── trans_cost/                # friction-cost sensitivity runs (planned)
+│   │   └── trans_cost/                # Friction-cost sensitivity (planned)
+│   ├── dual_signal/                   # Design 01 — DualSignalStrategy ✓
+│   │   ├── no_trans_cost/
+│   │   │   ├── in_sample/run.py + outputs/
+│   │   │   └── out_sample/run.py + outputs/
+│   │   └── trans_cost/
+│   │       ├── in_sample/run.py + outputs/
+│   │       └── out_sample/run.py + outputs/
+│   ├── dual_signal_blended/           # Design 02 — LongShortBlendSignal (partial)
+│   │   └── out_sample/run.py + outputs/ (l57_s23 · lp_blend_s23 · lp_blend_sp_blend)
 │   └── signal_optimization/
-│       ├── in_sample/
-│       │   ├── long_only/alphas/ | long_only/step1/
-│       │   └── short_only/alphas/ | short_only/step1/
-│       └── out_sample/
-│           ├── long_only/alphas/ | long_only/step1/
-│           └── short_only/alphas/ | short_only/step1/
+│       ├── 00 screening/              # Step 0 EW + Step 1 single-signal grid ✓
+│       │   ├── in_sample/long_only | short_only
+│       │   └── out_sample/long_only | short_only
+│       ├── 01 blend/                  # Step 2 LP/SP per-side Bayesian blend ✓
+│       │   ├── long power/run.py + outputs/
+│       │   └── short power/run.py + outputs/
+│       └── 02 ls_blend/              # Step 3 joint L/S 10-weight optimisation ✓
+│           └── run.py + outputs/ (best_ls_blend · best_weights.json · study.pkl)
+│
 ├── data/
-│   ├── processed/                     # data.csv (main input)
+│   ├── datapool.db                    # SQLite datapool (sole DB file)
+│   ├── processed/                     # data.csv (124 cols after FRED append)
 │   └── raw/
-├── debrief/                           # Periodic research reports
-│   └── YYYYMMDD/report.md + report.html
-├── research/                          # Per-contributor research notes & archives
-│   ├── 20260426_Team_Early-Baseline/  # ARCHIVED: original prototype (model_dev + reports)
+│
+├── debrief/
+│   └── 20260513/report.md + report.html + report.pdf
+│
+├── research/
+│   ├── 20260426_Team_Early-Baseline/  # ARCHIVED: original prototype
 │   ├── 20260426 _Simon_ML Infra/
-│   ├── 20260426_David_Alpha-signals/
+│   ├── 20260426_David_Alpha-signals/  # WQ101 alpha library & IC output
 │   ├── 20260509_Simon_Signal_Infra/
-│   └── 20260513_Simon_Strategy/
+│   ├── 20260513_Simon_Strategy/
+│   └── 20260526_David_RF model/       # RF daily panel (David) ← signal_6 source
+│       ├── config.py · daily_features.py · daily_model.py · run_daily.py
+│       ├── data/fred/                 # Raw FRED CSVs (T10Y2Y · HY OAS · WTI · USD · BE10Y)
+│       └── outputs/daily/rf_tuned/    # walk_forward_predictions.csv · metrics_summary.json
+│
 ├── scripts/
-│   └── dataset_builder.ipynb          # DB build orchestration
-└── simon_test/                        # Personal scratch space
+│   ├── dataset_builder.ipynb          # DB build orchestration (sole DB write entry point)
+│   ├── data_download_template.ipynb
+│   ├── tasks/ML001_TASK.ipynb
+│   └── trivial/
+│       └── merge_fred_to_csv.py       # Append 5 FRED macro columns to data/processed/data.csv
+│
+└── simon_test/                        # Personal scratch space (archived prototypes)
 ```
 
 ---

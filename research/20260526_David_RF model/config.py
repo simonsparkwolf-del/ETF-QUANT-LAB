@@ -1,0 +1,43 @@
+from pathlib import Path
+
+ROOT = Path(__file__).parent
+DB   = ROOT.parent / "Refinement_revised-old" / "ML001_data" / "datapool.db"
+OUT  = ROOT / "outputs"
+OUT.mkdir(parents=True, exist_ok=True)
+(OUT / "plots").mkdir(parents=True, exist_ok=True)
+
+SECTOR_ETFS = ['XLB','XLC','XLE','XLF','XLI','XLK','XLP','XLRE','XLU','XLV','XLY']
+SPY_TICKER  = 'SPY'
+VIX_TICKER  = 'VIX'
+UST10Y_TICKER = 'USGG10YR'
+
+DEFENSIVES_BUCKET      = {'XLP','XLU','XLV'}
+CYCLICALS_BUCKET       = {'XLY','XLI','XLB'}
+RATE_SENSITIVES_BUCKET = {'XLF','XLRE','XLU'}
+TECH_GROWTH_BUCKET     = {'XLK','XLC'}
+
+INITIAL_TRAIN_END = '2023-06-30'
+QUARTERLY_REFIT   = 'Q'
+MACRO_ROLL_WEEKS  = 12
+
+EN_ALPHA_GRID    = [0.001, 0.003, 0.01, 0.03, 0.1]
+EN_L1RATIO_GRID  = [0.1, 0.5, 0.9]
+INNER_CV_SPLITS  = 5
+
+BOOTSTRAP_BLOCK_WEEKS = 6
+BOOTSTRAP_N = 5000
+NDCG_PERMUTATIONS = 1000
+DECAY_HORIZONS_WEEKS = [1, 2, 4, 8]
+RANDOM_SEED = 17
+
+RF_MAX_DEPTH_GRID         = [4, 6, 8]
+RF_MIN_SAMPLES_LEAF_GRID  = [100, 200, 400]
+RF_N_ESTIMATORS_FIXED     = 400
+RF_INNER_CV_SPLITS        = 3
+RF_INNER_CV_GAP_ROWS      = 5
+
+MONTHLY_FORWARD_DAYS              = 20
+MONTHLY_EWMA_SPAN                 = 5
+MONTHLY_BOOTSTRAP_BLOCK_SNAPSHOT  = 1
+MONTHLY_BOOTSTRAP_BLOCK_SMOOTHED  = 3
+RF_INNER_CV_GAP_ROWS_MONTHLY      = 20

@@ -225,7 +225,9 @@ class SiganlOptimizationStrategy(Strategy):
 
     # ── Strategy interface ─────────────────────────────────────────────────
 
-    def on_ranking(self, scores: Scores) -> list[Action]:
+    def on_ranking(self, scores: Scores|None) -> list[Action]:
+        if scores is None:
+            return []
         if self.mode == "short":
             return self._on_ranking_short(scores["short"])
         return self._on_ranking_long(scores["long"])

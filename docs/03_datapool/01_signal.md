@@ -16,17 +16,20 @@ All signal classes implement `Signal.analyze()` → `OrderedDict[ticker, score]`
 
 ---
 
-## ML Signals (signal_id 1–5)
+## ML Signals (signal_id 1–6)
 
-| signal_id | Name | Model | Label | Status |
-|-----------|------|-------|-------|--------|
-| 1 | LightGBM_frs3 | LightGBM | FRS3 | ✓ Trained |
-| 2 | Ensemble_RankAvg_frs1 | Rank-average ensemble | FRS1 | ✓ Trained |
-| 3 | XGBoost_frs3 | XGBoost | FRS3 | ✓ Trained |
-| 4 | PCA_Ridge_frs3 | PCA + Ridge | FRS3 | ✓ Trained |
-| 5 | MLP_frs2 | MLP | FRS2 | ✓ Trained |
+| signal_id | Name | Model | Label | OOS IC (weekly) | Status |
+|-----------|------|-------|-------|-----------------|--------|
+| 1 | LightGBM_frs3 | LightGBM | FRS3 | — | ✓ Trained |
+| 2 | Ensemble_RankAvg_frs1 | Rank-average ensemble | FRS1 | — | ✓ Trained |
+| 3 | XGBoost_frs3 | XGBoost | FRS3 | — | ✓ Trained |
+| 4 | PCA_Ridge_frs3 | PCA + Ridge | FRS3 | — | ✓ Trained |
+| 5 | MLP_frs2 | MLP | FRS2 | — | ✓ Trained |
+| 6 | RF_tuned | RandomForest (quarterly refit, inner-CV tuned) | frs_4 proxy (5d excess) | 0.033 (IC-IR 0.077, hit 54.6%, 138 periods) | ✓ Integrated |
 
-**OOS screening winner:** Signal 2 (Ensemble_RankAvg_frs1) — most consistent across both baseline L/S and LP signal-opt frameworks. See `02_work/02_trading_opt/01_warmup_test.md` and `02_work/01_signal_opt/00_screening.md` for full results.
+**OOS screening winner (signals 1–5):** Signal 2 (Ensemble_RankAvg_frs1) — most consistent across both baseline L/S and LP signal-opt frameworks. See `02_work/02_trading_opt/01_warmup_test.md` and `02_work/01_signal_opt/00_screening.md` for full results.
+
+**Signal 6 notes:** Daily-cadence RF predictions aligned to Wednesday dates via forward-fill (`reindex(method="ffill")`). Research and walk-forward predictions live in `research/20260526_David_RF model/`. See `02_work/01_signal_mining/01_Signal06_RF.md` for methodology and known issues.
 
 ---
 

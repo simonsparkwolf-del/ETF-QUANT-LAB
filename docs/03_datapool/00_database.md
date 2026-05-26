@@ -49,8 +49,15 @@ flowchart TB
 | SPX | SPX Index | Benchmark |
 | VIX | VIX Index | Index |
 | USGG10YR | USGG10YR Index | Index |
+| T10Y2Y | T10Y2Y Index | Macro |
+| BAMLH0A0HYM2 | BAMLH0A0HYM2 Index | Macro |
+| DTWEXBGS | DTWEXBGS Index | Macro |
+| DCOILWTICO | DCOILWTICO Index | Macro |
+| T10YIE | T10YIE Index | Macro |
 
-### `daily_bar` / `weekly_bar` — all 15 assets
+FRED Macro tickers are loaded by `scripts/trivial/merge_fred_to_csv.py` (appends columns to `data/processed/data.csv`) and written to `daily_bar`/`weekly_bar` via `save_non_etf_bars`. Close-only; no volume, no TRI.
+
+### `daily_bar` / `weekly_bar` — all 20 assets
 
 | date | ticker | open | high | low | close | volume | tri |
 |------|--------|------|------|-----|-------|--------|-----|
@@ -73,7 +80,7 @@ Full refresh on each `save_frs_results` run.
 
 | date | ticker | signal_id | value |
 
-Per-`signal_id` refresh: deletes then reinserts only the ids present in code. Removed ids persist until manually deleted.
+Incremental insert: for each signal_id, only rows whose `(date, ticker)` pair is not already present are inserted. Existing rows are never deleted or recomputed. Removed signal ids persist until manually deleted via SQL.
 
 ### Registry tables (`alpha`, `frs`, `signal`)
 
@@ -83,13 +90,13 @@ Append-only for new ids. Existing rows are never deleted by `save_*` functions �
 
 ## Asset Coverage
 
-| Table | ETF (×11) | Benchmark (×2) | Index (×2) |
-|-------|-----------|----------------|------------|
-| daily_bar | ✓ | ✓ | ✓ |
-| weekly_bar | ✓ | ✓ | ✓ |
-| weekly_alpha | ✓ | — | — |
-| weekly_frs | ✓ | — | — |
-| weekly_signal | ✓ | — | — |
+| Table | ETF (×11) | Benchmark (×2) | Index (×2) | Macro (×5) |
+|-------|-----------|----------------|------------|------------|
+| daily_bar | ✓ | ✓ | ✓ | ✓ (close only) |
+| weekly_bar | ✓ | ✓ | ✓ | ✓ (close only) |
+| weekly_alpha | ✓ | — | — | — |
+| weekly_frs | ✓ | — | — | — |
+| weekly_signal | ✓ | — | — | — |
 
 ---
 
@@ -121,9 +128,10 @@ Append-only for new ids. Existing rows are never deleted by `save_*` functions �
 | Step | Function | What changes |
 |------|----------|--------------|
 | Bars | `save_panel_as_bars`, `save_non_etf_bars` | `daily_bar`, `weekly_bar` (replace) |
+| Assets | `seed_assets` | `asset`: INSERT OR IGNORE — existing rows never deleted |
 | Alphas | `save_alpha_results` | `weekly_alpha`: full DELETE + insert; `alpha`: append new ids |
 | FRS | `save_frs_results` | `weekly_frs`: full DELETE + insert; `frs`: append new ids |
-| Signals | `save_signal_results` | `weekly_signal`: DELETE per signal_id + insert; `signal`: append new ids |
+| Signals | `save_signal_results` | `weekly_signal`: incremental insert only (no DELETE — new rows only); `signal`: append new ids |
 
 ### Adding a metric
 

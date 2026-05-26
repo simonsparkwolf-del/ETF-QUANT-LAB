@@ -21,7 +21,7 @@ from QuantLab.backtest.schema.backtest import Account
 from QuantLab.backtest.schema.backtest_config import BacktestConfig
 from QuantLab.backtest.signal.alpha_test import AlphaBacktestSignal
 from QuantLab.backtest.strategy.baseline import BaselineStrategy
-from QuantLab.utils.config import load_pathes
+from QuantLab.utils.config import get_db_path
 
 START_DATE  = date(2025, 1, 1)
 END_DATE    = date(2026, 3, 1)
@@ -110,9 +110,8 @@ def _build_report(all_metrics: dict[int, dict], best_aid: int) -> str:
 
 
 def main() -> None:
-    paths = load_pathes()
-    db_path = paths["ROOT"] / "simon_test" / "datapool.db"
-    outputs = paths["ROOT"] / "backtests" / "baseline" / "out_sample" / "alpha" / "outputs"
+    db_path = get_db_path()
+    outputs = Path(__file__).parent / "outputs"
     outputs.mkdir(parents=True, exist_ok=True)
 
     all_metrics: dict[int, dict] = {}

@@ -32,7 +32,7 @@ ALPHA_IDS: tuple[int, ...] = (
 from typing import Literal
 
 from QuantLab.backtest.strategy.signal_optimization import SiganlOptimizationStrategy
-from QuantLab.utils.config import load_pathes
+from QuantLab.utils.config import get_db_path
 
 MODE: Literal["long", "short"] = "long"
 
@@ -130,10 +130,8 @@ def _build_alpha_report(all_metrics: dict[int, dict], best_aid: int, baseline_me
 
 
 def main() -> None:
-    paths = load_pathes()
-    root = paths["ROOT"]
-    db_path = root / "simon_test" / "datapool.db"
-    outputs = root / "backtests" / "signal_optimization"/"00 screening"/"out_sample" / "long_only" /"alphas" / "outputs"
+    db_path = get_db_path()
+    outputs = Path(__file__).parent / "outputs"
     outputs.mkdir(parents=True, exist_ok=True)
 
     # ── Equal-weight baseline ─────────────────────────────────────────────

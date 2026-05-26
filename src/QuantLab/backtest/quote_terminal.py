@@ -132,6 +132,16 @@ class QuoteTerminal:
 
     # ── analysis only ──────────────────────────────────────────────────────
 
+    def signal_ids(self, start: date, end: date) -> list[int]:
+        """Sorted list of distinct signal IDs present in weekly_signal within [start, end]."""
+        df = pd.read_sql_query(
+            "SELECT DISTINCT signal_id FROM weekly_signal "
+            "WHERE date >= ? AND date <= ? ORDER BY signal_id",
+            self._conn,
+            params=[start.isoformat(), end.isoformat()],
+        )
+        return [int(x) for x in df["signal_id"].tolist()]
+
     def benchmark_history(self, start: date, end: date) -> pd.DataFrame:
         """
         Full Benchmark OHLCV series over [start, end].

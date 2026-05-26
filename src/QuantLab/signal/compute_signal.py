@@ -76,8 +76,8 @@ def save_signal_results(
 
     Strategy:
     - signal registry table: incremental insert (only missing signal_id)
-    - weekly_signal values: for each signal_id, delete existing rows for that id, then append recomputed rows
-      (preserves other signals' data).
+    - weekly_signal values: compute full signal (rolling windows need full history),
+      then INSERT only rows not already present — existing rows are never deleted.
     """
     _auto_import_signals()
     _ensure_signal_registry_in_db(conn)
@@ -142,11 +142,19 @@ def save_signal_results(
             tmp["signal_id"] = sid
             out_rows.append(tmp)
 
-        # Replace rows for this signal_id only
-        conn.execute("DELETE FROM weekly_signal WHERE signal_id = ?", (sid,))
         if out_rows:
             long = pd.concat(out_rows, ignore_index=True)[["date", "ticker", "signal_id", "value"]]
-            long.to_sql("weekly_signal", conn, if_exists="append", index=False)
+            existing = pd.read_sql(
+                "SELECT date, ticker FROM weekly_signal WHERE signal_id = ?",
+                conn,
+                params=(sid,),
+            )
+            if not existing.empty:
+                exist_idx = pd.MultiIndex.from_frame(existing[["date", "ticker"]])
+                long_idx = pd.MultiIndex.from_frame(long[["date", "ticker"]])
+                long = long[~long_idx.isin(exist_idx)]
+            if not long.empty:
+                long.to_sql("weekly_signal", conn, if_exists="append", index=False)
         conn.commit()
 
     print(f"Signal complete → SQLite weekly_signal table (signals={len(SIGNAL_REGISTRY)})")

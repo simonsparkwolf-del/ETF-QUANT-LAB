@@ -6,9 +6,7 @@ separate DB connection is opened.
 
 from __future__ import annotations
 
-import importlib
 from collections import OrderedDict
-from datetime import date
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -20,37 +18,29 @@ if TYPE_CHECKING:
     from QuantLab.backtest.quote_terminal import QuoteTerminal
 
 
-_SIGNAL_NAMES: dict[int, str] = {
-    1: "ml1_LightGBM_frs3",
-    2: "ml2_Ensemble_RankAvg_frs1",
-    3: "ml3_XGBoost_frs3",
-    4: "ml4_PCA_Ridge_frs3",
-    5: "ml5_MLP_frs2",
-}
-
-
 class MLBacktestSignal(Signal):
-    """Backtest Signal backed by a QuantLab.signal.ml.signal_{N} panel function.
+    """Backtest Signal backed by a pre-computed ML signal column in weekly_signal.
 
-    signal_id in [1..5].  Date range must match the BacktestConfig so that
-    terminal.bars() covers every rebalance date.
-
-    Panel is computed once in bind() — reusing the engine's terminal — and
-    cached for O(1) lookup per analyze() call.
+    The signal name is derived from the DB column convention (signal_{id}).
+    signal_id in [1..N] — the set of available IDs is queried from the DB via
+    QuoteTerminal.signal_ids(), not hardcoded here.
     """
 
     def __init__(self, signal_id: int) -> None:
-        super().__init__(_SIGNAL_NAMES.get(signal_id, f"ml_signal_{signal_id}"))
+        super().__init__(f"signal_{signal_id}")
         self._signal_id = signal_id
         self._panel_df: pd.DataFrame | None = None
 
 
     # ── per-bar ────────────────────────────────────────────────────────────
 
-    def analyze(self) -> Scores:
+    def analyze(self) -> Scores|None:
         assert self.terminal is not None
         signal_name = f"signal_{self._signal_id}"
-        signals = self.terminal.signals()[["ticker", signal_name]]
+        try:
+            signals = self.terminal.signals()[["ticker", signal_name]]
+        except KeyError:
+            return None
         tickers = sorted(signals["ticker"].unique().tolist())
         scores: dict[str, float] = {}
         for ticker in tickers:

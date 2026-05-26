@@ -29,7 +29,7 @@ from QuantLab.backtest.schema.backtest import Account
 from QuantLab.backtest.schema.backtest_config import BacktestConfig
 from QuantLab.backtest.signal.dual_head_alpha_signal import LongShortAlphaSignal
 from QuantLab.backtest.strategy.asymmetric_ls import DualSignalStrategy
-from QuantLab.utils.config import load_pathes
+from QuantLab.utils.config import get_db_path
 
 START_DATE  = date(2021, 3, 3)
 END_DATE    = date(2024, 12, 31)
@@ -136,12 +136,8 @@ def _build_report(
 
 
 def main() -> None:
-    paths = load_pathes()
-    db_path = paths["ROOT"] / "simon_test" / "datapool.db"
-    outputs = (
-        paths["ROOT"]
-        / "backtests" / "dual_signal" / "no_trans_cost" / "in_sample" / "outputs"
-    )
+    db_path = get_db_path()
+    outputs = Path(__file__).parent / "outputs"
     outputs.mkdir(parents=True, exist_ok=True)
 
     pairs = [
