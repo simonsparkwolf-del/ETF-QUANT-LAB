@@ -1,0 +1,5 @@
+regime,mean_weekly_ic,kind
+high_VIX,0.07799043062200958,vix
+low_VIX,-0.01879964695498677,vix
+falling_rates,0.012987012987012981,rates
+rising_rates,0.0016645326504481405,rates

@@ -116,8 +116,10 @@ class BaselineStrategy(Strategy):
 
     # ── Strategy interface ─────────────────────────────────────────────────
 
-    def on_ranking(self, scores: Scores) -> list[Action]:
+    def on_ranking(self, scores: Scores|None) -> list[Action]:
         assert self.terminal is not None and self.account is not None
+        if scores is None:
+            return []
         ranking = scores["long"]
         if not ranking:
             return []

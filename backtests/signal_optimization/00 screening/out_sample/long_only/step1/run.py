@@ -35,7 +35,7 @@ from QuantLab.backtest.schema.backtest_config import BacktestConfig
 from QuantLab.backtest.signal.ml_backtest_signal import MLBacktestSignal
 from QuantLab.backtest.signal.optimization_test import OptimizationTestSignal
 from QuantLab.backtest.strategy.signal_optimization import SiganlOptimizationStrategy
-from QuantLab.utils.config import load_pathes
+from QuantLab.utils.config import get_db_path
 
 
 # ── constants ──────────────────────────────────────────────────────────────
@@ -55,6 +55,7 @@ _SIGNAL_LABELS: dict[int, str] = {
     3: "XGBoost_frs3",
     4: "PCA_Ridge_frs3",
     5: "MLP_frs2",
+    6: "RF_frs4"
 }
 
 
@@ -168,15 +169,13 @@ def _build_report(
 # ── main ───────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    paths = load_pathes()
-    root = paths["ROOT"]
-    db_path = root / "simon_test" /  "datapool.db"
-    outputs = root / "backtests" / "signal_optimization"/ "out_sample"/"long_only" / "step1" / "outputs"
+    db_path = get_db_path()
+    outputs = Path(__file__).parent / "outputs"
     outputs.mkdir(parents=True, exist_ok=True)
 
     # ── Phase 1: screen all 6 signals (no artifact I/O) ──────────────────
     all_metrics: dict[int, dict] = {}
-    for sid in range(0, 6):
+    for sid in range(0, 7):
         label = _SIGNAL_LABELS[sid]
         print(f"\n{'=' * 60}")
         print(f"  Signal {sid}: {label}")
@@ -198,7 +197,7 @@ def main() -> None:
         )
 
     # ── Phase 2: select best ML signal by objective ──────────────────────
-    best_id = max(range(1, 6), key=lambda sid: _objective(all_metrics[sid]))
+    best_id = max(range(1, 7), key=lambda sid: _objective(all_metrics[sid]))
     best_label = _SIGNAL_LABELS[best_id]
     print(f"\n>>> Best ML signal: {best_id} ({best_label}), Sharpe={_objective(all_metrics[best_id]):.3f}")
 

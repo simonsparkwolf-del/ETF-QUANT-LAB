@@ -1,9 +1,10 @@
 """
 Baseline Long-Short — ML signal screening (in-sample).
 
-Each ML signal (1–5) is backtested via BaselineStrategy + BaselineRisk.
+Each ML signal found in the DB is backtested via BaselineStrategy + BaselineRisk.
+Signal IDs and labels are derived from the DB — nothing is hardcoded here.
 
-Outputs:  backtests/baseline/in_sample/ml_signal/outputs/
+Outputs:  backtests/baseline/no_trans_cost/in_sample/ml_signal/outputs/
   comparison.md
   summary.json
   best_signal_{id}/
@@ -16,26 +17,17 @@ from datetime import date
 from pathlib import Path
 
 from QuantLab.backtest.engine import BacktestEngine
+from QuantLab.backtest.quote_terminal import QuoteTerminal
 from QuantLab.backtest.risk.baseline import BaselineRisk
 from QuantLab.backtest.schema.backtest import Account
 from QuantLab.backtest.schema.backtest_config import BacktestConfig
 from QuantLab.backtest.signal.ml_backtest_signal import MLBacktestSignal
 from QuantLab.backtest.strategy.baseline import BaselineStrategy
-from QuantLab.utils.config import load_pathes
+from QuantLab.utils.config import get_db_path
 
 START_DATE  = date(2021, 3, 3)
 END_DATE    = date(2024, 12, 31)
 INITIAL_NAV = 10_000.0
-
-SIGNAL_IDS: tuple[int, ...] = (1, 2, 3, 4, 5)
-
-_SIGNAL_LABELS: dict[int, str] = {
-    1: "LightGBM_frs3",
-    2: "Ensemble_RankAvg_frs1",
-    3: "XGBoost_frs3",
-    4: "PCA_Ridge_frs3",
-    5: "MLP_frs2",
-}
 
 
 def _run_one(
@@ -97,7 +89,7 @@ def _build_report(all_metrics: dict[int, dict], best_id: int) -> str:
         m = all_metrics[sid]
         tag = " ★" if sid == best_id else ""
         lines.append(
-            f"| {_SIGNAL_LABELS[sid]}{tag} "
+            f"| signal_{sid}{tag} "
             f"| {_f2(float(m.get('sharpe', 0.0)))} "
             f"| {_pct(float(m.get('annual_return', 0.0)))} "
             f"| {_pct(float(m.get('annual_volatility', 0.0)))} "
@@ -106,7 +98,7 @@ def _build_report(all_metrics: dict[int, dict], best_id: int) -> str:
         )
     lines += [
         "",
-        f"> ★ best by Sharpe: **{_SIGNAL_LABELS[best_id]}** ({_f2(_objective(all_metrics[best_id]))})",
+        f"> ★ best by Sharpe: **signal_{best_id}** ({_f2(_objective(all_metrics[best_id]))})",
         "",
         f"Artifacts: `outputs/best_signal_{best_id}/`",
     ]
@@ -114,15 +106,18 @@ def _build_report(all_metrics: dict[int, dict], best_id: int) -> str:
 
 
 def main() -> None:
-    paths = load_pathes()
-    db_path = paths["ROOT"] / "simon_test" / "datapool.db"
-    outputs = paths["ROOT"] / "backtests" / "baseline" / "in_sample" / "ml_signal" / "outputs"
+    db_path = get_db_path()
+    outputs = Path(__file__).parent / "outputs"
     outputs.mkdir(parents=True, exist_ok=True)
 
+    terminal = QuoteTerminal(db_path)
+    signal_ids = terminal.signal_ids(START_DATE, END_DATE)
+    terminal.close()
+
     all_metrics: dict[int, dict] = {}
-    for sid in SIGNAL_IDS:
+    for sid in signal_ids:
         print(f"\n{'=' * 60}")
-        print(f"  Signal {sid}: {_SIGNAL_LABELS[sid]}")
+        print(f"  signal_{sid}")
         print(f"{'=' * 60}")
         metrics = _run_one(
             MLBacktestSignal(sid),
@@ -140,7 +135,7 @@ def main() -> None:
         )
 
     best_id = max(all_metrics, key=lambda sid: _objective(all_metrics[sid]))
-    print(f"\n>>> Best signal: {best_id} ({_SIGNAL_LABELS[best_id]}), "
+    print(f"\n>>> Best signal: signal_{best_id}, "
           f"Sharpe={_objective(all_metrics[best_id]):.3f}")
 
     (outputs / "comparison.md").write_text(
@@ -151,7 +146,7 @@ def main() -> None:
         json.dump(
             {
                 "best_signal_id": best_id,
-                "best_signal_label": _SIGNAL_LABELS[best_id],
+                "best_signal_label": f"signal_{best_id}",
                 "all_metrics": {str(k): v for k, v in all_metrics.items()},
             },
             f,
@@ -162,7 +157,7 @@ def main() -> None:
     best_save = outputs / f"best_signal_{best_id}"
     best_save.mkdir(parents=True, exist_ok=True)
     print(f"\n{'=' * 60}")
-    print(f"  Re-running Signal {best_id} ({_SIGNAL_LABELS[best_id]}) with full artifacts")
+    print(f"  Re-running signal_{best_id} with full artifacts")
     print(f"{'=' * 60}")
     best_metrics = _run_one(
         MLBacktestSignal(best_id),

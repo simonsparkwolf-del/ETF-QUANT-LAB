@@ -18,7 +18,7 @@ class Signal(ABC):
         self.terminal = terminal
 
     @abstractmethod
-    def analyze(self) -> Scores:
+    def analyze(self) -> Scores|None:
         """Per-ETF scores at terminal.day.
 
         Returns a dict with keys ``"long"`` and ``"short"``, each mapping

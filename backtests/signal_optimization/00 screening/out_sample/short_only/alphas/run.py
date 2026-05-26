@@ -25,7 +25,7 @@ from QuantLab.backtest.schema.backtest_config import BacktestConfig
 from QuantLab.backtest.signal.alpha_test import AlphaBacktestSignal
 from QuantLab.backtest.signal.optimization_test import OptimizationTestSignal
 from QuantLab.backtest.strategy.signal_optimization import SiganlOptimizationStrategy
-from QuantLab.utils.config import load_pathes
+from QuantLab.utils.config import get_db_path
 
 ALPHA_IDS: tuple[int, ...] = (
     6, 10, 14, 16, 18, 19, 20, 22, 23, 24, 26, 30, 31, 32, 34, 37, 40, 44,
@@ -129,10 +129,8 @@ def _build_alpha_report(all_metrics: dict[int, dict], best_aid: int, baseline_me
 
 
 def main() -> None:
-    paths = load_pathes()
-    root = paths["ROOT"]
-    db_path = root / "simon_test" / "datapool.db"
-    outputs = root / "backtests" / "signal_optimization" /"out_sample" / "short_only" / "alphas" / "outputs"
+    db_path = get_db_path()
+    outputs = Path(__file__).parent / "outputs"
     outputs.mkdir(parents=True, exist_ok=True)
 
     # ── Equal-weight baseline ─────────────────────────────────────────────

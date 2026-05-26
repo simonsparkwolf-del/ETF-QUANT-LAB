@@ -11,13 +11,14 @@ Date range: 2021-03-03 → 2024-12-31  |  Initial NAV: 10,000
 | Ensemble_RankAvg_frs1 | 0.698 | 10.00% | 15.37% | -20.83% | 614.09% | +0.008 |
 | XGBoost_frs3 | 0.691 | 9.74% | 15.11% | -19.87% | 51.39% | +0.001 |
 | PCA_Ridge_frs3 | 0.690 | 9.71% | 15.10% | -19.89% | 46.19% | -0.000 |
-| MLP_frs2 ★ | 0.705 | 9.98% | 15.14% | -21.19% | 582.52% | +0.015 |
+| MLP_frs2 | 0.705 | 9.98% | 15.14% | -21.19% | 582.52% | +0.015 |
+| RF_frs4 ★ | 0.750 | 5.34% | 7.30% | -9.33% | 26.36% | +0.059 |
 
 > ★ best ML signal by Sharpe
 
 ## Verdict
 
-Best ML signal: **MLP_frs2** (Signal 5)
-- Sharpe: 0.705
+Best ML signal: **RF_frs4** (Signal 6)
+- Sharpe: 0.750
 
-Full artifacts saved in `outputs/best_signal_5/`.
+Full artifacts saved in `outputs/best_signal_6/`.

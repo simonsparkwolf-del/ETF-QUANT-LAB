@@ -231,7 +231,7 @@ class Strategy(ABC):
         return out
 
     @abstractmethod
-    def on_ranking(self, scores: Scores) -> list[Action]:
+    def on_ranking(self, scores: Scores|None) -> list[Action]:
         """Turn signal scores into actions.
 
         ``scores["long"]`` and ``scores["short"]`` each map ticker → float.

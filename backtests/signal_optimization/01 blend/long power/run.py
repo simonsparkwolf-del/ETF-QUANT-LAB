@@ -51,7 +51,7 @@ from QuantLab.backtest.schema.backtest_config import BacktestConfig
 from QuantLab.backtest.signal.alpha_test import AlphaBacktestSignal
 from QuantLab.backtest.signal.signal_blend import AlphaBlendSignal
 from QuantLab.backtest.strategy.signal_optimization import SiganlOptimizationStrategy
-from QuantLab.utils.config import load_pathes
+from QuantLab.utils.config import get_db_path
 
 # ── windows ────────────────────────────────────────────────────────────────────
 IS_TRAIN_START = date(2021,  3,  3)
@@ -132,12 +132,8 @@ def _make_objective(db_path: Path, scratch: Path):
 # ── main ───────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    paths    = load_pathes()
-    db_path  = paths["ROOT"] / "simon_test" / "datapool.db"
-    outputs  = (
-        paths["ROOT"]
-        / "backtests" / "signal_optimization" / "01 blend" / "long power" / "outputs"
-    )
+    db_path = get_db_path()
+    outputs  = Path(__file__).parent / "outputs"
     scratch  = outputs / "_trials"
     outputs.mkdir(parents=True, exist_ok=True)
     scratch.mkdir(parents=True, exist_ok=True)
