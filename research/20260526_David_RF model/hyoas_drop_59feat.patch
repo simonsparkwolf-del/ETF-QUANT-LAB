@@ -1,0 +1,233 @@
+diff --git a/new_strategy/daily_features.py b/new_strategy/daily_features.py
+index 0f0a194..0277513 100644
+--- a/new_strategy/daily_features.py
++++ b/new_strategy/daily_features.py
+@@ -39,13 +39,14 @@ MACRO_FEATURES    = ['spy_ret_20d', 'spy_vol_60d', 'spy_dd_252d',
+ FRED_FEATURES = [
+     # Yield curve slope (10Y - 2Y)
+     't10y2y_level', 't10y2y_z_60d', 't10y2y_d_20d',
+-    # HY credit spread (starts 2023-05-22 -> NaN before that filled with 0)
+-    'hyoas_level', 'hyoas_z_60d', 'hyoas_d_20d',
++    # HY credit spread (hyoas_*) dropped: a single macro series broadcast
++    # identically across all 11 sectors carries no cross-sectional signal for
++    # the within-day ranking target; controlled test showed it was OOS-harmful.
+     # USD broad index
+     'usd_ret_20d', 'usd_vol_60d',
+     # WTI crude
+     'crude_ret_20d', 'crude_ret_60d',
+-    # 10Y breakeven inflation (z_60d added for parity with T10Y2Y / HY OAS)
++    # 10Y breakeven inflation (z_60d added for parity with T10Y2Y)
+     'be10y_level', 'be10y_z_60d', 'be10y_d_20d',
+ ]
+ SECTOR_DUMMY_FEATURES = [f'is_{t}' for t in SECTOR_ETFS]
+@@ -56,7 +57,7 @@ INTERACTION_FEATURES = [
+     'inter_disp20_x_mom60d',
+     # FRED x feature-type interactions (it2 parity with it1 style)
+     'inter_t10y2yz_x_beta60d',
+-    'inter_hyoasz_x_mom60d',
++    # 'inter_hyoasz_x_mom60d' dropped with the hyoas_* feature group (see above)
+     'inter_crude60_x_disp20',
+     'inter_be10yz_x_beta60d',
+     'inter_usd20_x_mom60d',
+diff --git a/new_strategy/gen_production_preds.py b/new_strategy/gen_production_preds.py
+new file mode 100644
+index 0000000..1253b68
+--- /dev/null
++++ b/new_strategy/gen_production_preds.py
+@@ -0,0 +1,39 @@
++# ============================================================
++# NEW STRATEGY ADDITION - regenerate the production (signal_id=6)
++# fixed-hyperparam RF walk-forward predictions from the current feature
++# manifest in daily_features.ALL_FEATURES. Writes
++# predictions/walk_forward_predictions.csv (consumed by ingest_predictions.py).
++# Run from the repo root:  python new_strategy/gen_production_preds.py
++# ============================================================
++from __future__ import annotations
++import sys
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parent
++sys.path.insert(0, str(ROOT))
++
++from data_loader import load_daily_close, load_daily_volume, load_daily_macro
++from daily_features import build_daily_panel, ALL_FEATURES
++from daily_model import walk_forward_daily
++from fred_loader import load_fred_wide
++
++
++def main() -> None:
++    panel = build_daily_panel(
++        load_daily_close(), load_daily_volume(), load_daily_macro(),
++        fred_wide=load_fred_wide(), target_fwd_days=5,
++    )
++    feat = [c for c in ALL_FEATURES if c in panel.columns]
++    print(f"features used: {len(feat)}")
++    preds = walk_forward_daily(
++        panel, feature_cols=feat, target_col='y_5d_excess',
++        model_kind='rf', use_sector_fe=True, tune_rf=False,
++    )
++    out = ROOT / "predictions" / "walk_forward_predictions.csv"
++    preds.to_csv(out, index=False)
++    print(f"wrote {out}  rows={len(preds)}  "
++          f"{preds['date'].min().date()}..{preds['date'].max().date()}")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/new_strategy/model.py b/new_strategy/model.py
+new file mode 100644
+index 0000000..0ec7054
+--- /dev/null
++++ b/new_strategy/model.py
+@@ -0,0 +1,43 @@
++# ============================================================
++# NEW STRATEGY ADDITION - Random Forest daily sector ETF model
++# Reconstructed helper: the original local `model.py` was not ported
++# into this repo, but daily_model.py imports `make_weekly_ic_scorer`
++# from it. Only the *tuned* RF path (tune_rf=True) calls this scorer;
++# the production winning model (signal_id=6) uses fixed hyperparameters
++# and never invokes it. Reconstructed to match
++# evaluation.weekly_spearman_ic semantics (mean per-date Spearman IC).
++# ============================================================
++from __future__ import annotations
++
++import numpy as np
++import pandas as pd
++from scipy.stats import spearmanr
++
++
++def make_weekly_ic_scorer(dates_arr):
++    """Return a scorer fn(estimator, X, y) -> mean per-date Spearman IC.
++
++    `dates_arr` is the full (reset-index) training dates array. The scorer
++    maps the rows of X back to their dates via X's positional index labels
++    (daily_model resets the panel index so labels == positions), groups by
++    date, and averages the cross-sectional Spearman rank correlation between
++    predictions and y across dates.
++    """
++    dates_arr = np.asarray(dates_arr)
++
++    def _scorer(estimator, X, y) -> float:
++        pred = np.asarray(estimator.predict(X))
++        y = np.asarray(y)
++        idx = np.asarray(X.index)
++        d = dates_arr[idx]
++        frame = pd.DataFrame({'date': d, 'pred': pred, 'y': y})
++        ics = []
++        for _, grp in frame.groupby('date'):
++            if grp['y'].nunique() < 2 or grp['pred'].nunique() < 2:
++                continue
++            rho, _ = spearmanr(grp['pred'], grp['y'])
++            if not np.isnan(rho):
++                ics.append(rho)
++        return float(np.mean(ics)) if ics else 0.0
++
++    return _scorer
+diff --git a/new_strategy/rebuild_db.py b/new_strategy/rebuild_db.py
+new file mode 100644
+index 0000000..612dc8e
+--- /dev/null
++++ b/new_strategy/rebuild_db.py
+@@ -0,0 +1,102 @@
++# ============================================================
++# NEW STRATEGY ADDITION - rebuild datapool.db from the in-repo
++# data/processed/data.csv (Bloomberg panel) + FRED CSVs, so the RF
++# daily pipeline can run in environments without David's local DB.
++# Replaces setup_db.py's copy-from-Windows step.
++# ============================================================
++from __future__ import annotations
++
++import sqlite3
++import sys
++from pathlib import Path
++
++import pandas as pd
++
++REPO_ROOT = Path(__file__).resolve().parent.parent
++sys.path.insert(0, str(REPO_ROOT / "src"))
++sys.path.insert(0, str(REPO_ROOT / "new_strategy"))
++
++from QuantLab.utils.data_loader import load_panel, save_panel_as_bars, save_non_etf_bars  # noqa: E402
++from QuantLab.utils.db import init_db  # noqa: E402
++
++DATA_CSV = REPO_ROOT / "data" / "processed" / "data.csv"
++DST_DB = REPO_ROOT / "simon_test" / "datapool.db"
++MARKER = REPO_ROOT / ".project-root"
++
++
++def _alpha110(conn: sqlite3.Connection, freq: str, lookback: int) -> None:
++    bar_tbl, alpha_tbl = f"{freq}_bar", f"{freq}_alpha"
++    bars = pd.read_sql_query(
++        f"SELECT date, ticker, close FROM {bar_tbl} ORDER BY ticker, date", conn
++    )
++    bars["date"] = pd.to_datetime(bars["date"])
++    bars = bars.sort_values(["ticker", "date"])
++    bars["value"] = bars.groupby("ticker")["close"].transform(
++        lambda s: s / s.shift(lookback) - 1.0
++    )
++    out = bars.dropna(subset=["value"]).copy()
++    out["alpha_id"] = 110
++    out["date"] = out["date"].dt.strftime("%Y-%m-%d")
++    out = out[["date", "ticker", "alpha_id", "value"]]
++    conn.execute(f"DELETE FROM {alpha_tbl} WHERE alpha_id = 110")
++    out.to_sql(alpha_tbl, conn, if_exists="append", index=False)
++    conn.commit()
++    print(f"[rebuild] alpha_110 -> {alpha_tbl}: {len(out):,} rows")
++
++
++def main() -> None:
++    if not DATA_CSV.exists():
++        raise FileNotFoundError(DATA_CSV)
++    DST_DB.parent.mkdir(parents=True, exist_ok=True)
++    if DST_DB.exists():
++        DST_DB.unlink()
++    if not MARKER.exists():
++        MARKER.touch()
++
++    panel = load_panel(DATA_CSV)
++    conn = init_db(DST_DB)
++    save_panel_as_bars(panel, conn)        # 11 ETF daily+weekly bars + asset table
++    save_non_etf_bars(DATA_CSV, conn)      # SPY/SPX/VIX/USGG10YR bars
++
++    # daily_alpha is not in the base schema (David's local DB had it); add it.
++    conn.execute(
++        """
++        CREATE TABLE IF NOT EXISTS daily_alpha (
++            date TEXT NOT NULL, ticker TEXT NOT NULL,
++            alpha_id INTEGER NOT NULL, value REAL,
++            PRIMARY KEY (date, ticker, alpha_id)
++        )
++        """
++    )
++    conn.execute(
++        """
++        CREATE TABLE IF NOT EXISTS daily_signal (
++            date TEXT NOT NULL, ticker TEXT NOT NULL,
++            signal_id INTEGER NOT NULL, value REAL,
++            PRIMARY KEY (date, ticker, signal_id)
++        )
++        """
++    )
++    conn.execute("CREATE INDEX IF NOT EXISTS idx_daily_signal_date ON daily_signal(date)")
++    conn.commit()
++
++    # weekly_alpha has a FK to alpha(alpha_id); register 110 in the catalog.
++    conn.execute(
++        "INSERT OR IGNORE INTO alpha (alpha_id, alpha_name, applicable) VALUES (110, 'ret_60d_cum', 'ETF')"
++    )
++    conn.commit()
++
++    _alpha110(conn, "weekly", 12)
++    _alpha110(conn, "daily", 60)
++
++    # report
++    for tbl in ("daily_bar", "weekly_bar", "daily_alpha", "daily_signal"):
++        n = pd.read_sql_query(f"SELECT COUNT(*) n FROM {tbl}", conn)["n"].iloc[0]
++        rng = pd.read_sql_query(f"SELECT MIN(date) a, MAX(date) b FROM {tbl}", conn)
++        print(f"[rebuild] {tbl:12s} n={n:>7,}  {rng['a'].iloc[0]} -> {rng['b'].iloc[0]}")
++    conn.close()
++    print(f"[rebuild] done -> {DST_DB}")
++
++
++if __name__ == "__main__":
++    main()
