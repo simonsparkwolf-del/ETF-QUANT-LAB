@@ -35,6 +35,9 @@ Whenever run your code, remember only in venv.
 - **All pilot tests and personal documents must go in `/research/XXX`.**
 - **Do not create folders or files outside `/research` without Simon's approval.**
 
+## Database
+- run **.\scripts\dataset_builder.ipynb** to build the sqlite database
+
 ## Milestones
 1. April 21st — First draft of baseline model.
 2. April 26th — Alpha test and ML model architecture drafts.
@@ -45,3 +48,4 @@ Whenever run your code, remember only in venv.
 7. May 13th — Signal optimization Step 1 + Baseline L/S screening completed (IS + OOS).
 8. May 14th — Design 01 (Dual-Signal L/S) completed: IS + OOS grid + transaction cost validation.
 9. May 15th — Signal blend experiments (Step 2 LP/SP + Step 3 joint) completed: all negative; `l57_s23` confirmed as production signal configuration (OOS Sharpe 2.152).
+10. May 26th — **Look-forward evaluation structure + daily data random forest feature consolidation structure**
